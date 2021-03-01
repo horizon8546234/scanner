@@ -1,8 +1,0 @@
-prefix=/home/hou/scanner/devel
-
-Name: hokuyo_node
-Description: Description of hokuyo_node
-Version: 1.7.8
-Cflags: -I/home/hou/scanner/devel/include -I/home/hou/scanner/src/sensors/hokuyo_node/include
-Libs: -L${prefix}/lib -llibhokuyo
-Requires: rosconsole

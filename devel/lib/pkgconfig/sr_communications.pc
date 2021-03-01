@@ -1,8 +1,0 @@
-prefix=/home/hou/scanner/devel
-
-Name: sr_communications
-Description: Description of sr_communications
-Version: 0.0.3
-Cflags: -I/home/hou/scanner/src/control/motors/sr_common_drivers/sr_communications/include
-Libs: -L${prefix}/lib 
-Requires: roscpp

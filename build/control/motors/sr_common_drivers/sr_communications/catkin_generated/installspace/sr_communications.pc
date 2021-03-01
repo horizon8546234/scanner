@@ -1,8 +1,0 @@
-prefix=/home/hou/scanner/install
-
-Name: sr_communications
-Description: Description of sr_communications
-Version: 0.0.3
-Cflags: -I${prefix}/include
-Libs: -L${prefix}/lib 
-Requires: roscpp

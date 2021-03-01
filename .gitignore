@@ -8,8 +8,7 @@ __pycache__
 *.vscode
 *.log
 *.xls
-*.vscode
-*graph
+*.graph
 *.pb
 *.meta
 *.index
@@ -17,7 +16,7 @@ __pycache__
 *.svg
 *.out
 *.cu
-*jpg
+*.jpg
 *.zip
 *.tar.gz
 models/

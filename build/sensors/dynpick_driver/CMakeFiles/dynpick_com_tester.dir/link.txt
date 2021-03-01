@@ -1,0 +1,1 @@
+/usr/bin/cc -O3 -DNDEBUG  -rdynamic CMakeFiles/dynpick_com_tester.dir/src/test-com.c.o  -o /home/hou/scanner/devel/lib/dynpick_driver/dynpick_com_tester 

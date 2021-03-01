@@ -1,0 +1,8 @@
+prefix=/home/hou/scanner/install
+
+Name: yolov4_pytorch
+Description: Description of yolov4_pytorch
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

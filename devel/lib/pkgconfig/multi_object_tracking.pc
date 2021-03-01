@@ -1,0 +1,8 @@
+prefix=/home/hou/scanner/devel
+
+Name: multi_object_tracking
+Description: Description of multi_object_tracking
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

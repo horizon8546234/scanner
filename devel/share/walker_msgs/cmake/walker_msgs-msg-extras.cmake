@@ -1,0 +1,2 @@
+set(walker_msgs_MESSAGE_FILES "/home/hou/scanner/src/walker_msgs/msg/BBox2D.msg;/home/hou/scanner/src/walker_msgs/msg/Detection2D.msg;/home/hou/scanner/src/walker_msgs/msg/Det3D.msg;/home/hou/scanner/src/walker_msgs/msg/Det3DArray.msg;/home/hou/scanner/src/walker_msgs/msg/Trk3D.msg;/home/hou/scanner/src/walker_msgs/msg/Trk3DArray.msg")
+set(walker_msgs_SERVICE_FILES "/home/hou/scanner/src/walker_msgs/srv/Detection2DTrigger.srv")

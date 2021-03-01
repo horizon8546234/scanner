@@ -1,0 +1,8 @@
+prefix=/home/hou/scanner/install
+
+Name: path_finding
+Description: Description of path_finding
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib -lpath_finding
+Requires: geometry_msgs nav_msgs roscpp sensor_msgs std_msgs std_srvs

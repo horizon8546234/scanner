@@ -1,0 +1,8 @@
+prefix=/home/hou/scanner/devel
+
+Name: walker_msgs
+Description: Description of walker_msgs
+Version: 0.0.0
+Cflags: -I/home/hou/scanner/devel/include
+Libs: -L${prefix}/lib 
+Requires: 

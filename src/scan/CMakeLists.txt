@@ -193,29 +193,29 @@ target_link_libraries(path_finding_node_test
   ${catkin_LIBRARIES}
 )
 
-# add_executable(scan2localmap_node src/scan2localmap_node.cpp)
-# target_link_libraries(scan2localmap_node 
-#   ${catkin_LIBRARIES}
-# )
+add_executable(scan2localmap_node src/scan2localmap_node.cpp)
+target_link_libraries(scan2localmap_node 
+  ${catkin_LIBRARIES}
+)
 
 add_executable(scan2localmap_node_test src/scan2localmap_node_test.cpp)
 target_link_libraries(scan2localmap_node_test 
   ${catkin_LIBRARIES}
 )
 
-add_executable(scan_image_combine_node src/scan_image_combine_node.cpp)
-target_link_libraries(scan_image_combine_node
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${EIGEN3_LIBRARIES}
-)
+# add_executable(scan_image_combine_node src/scan_image_combine_node.cpp)
+# target_link_libraries(scan_image_combine_node
+#   ${catkin_LIBRARIES}
+#   ${OpenCV_LIBRARIES}
+#   ${EIGEN3_LIBRARIES}
+# )
 add_executable(scan_image_combine_node_test src/scan_image_combine_node_test.cpp)
 target_link_libraries(scan_image_combine_node_test
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${EIGEN3_LIBRARIES}
 )
-add_dependencies(scan_image_combine_node walker_msgs_generate_messages_cpp)
+add_dependencies(scan_image_combine_node_test walker_msgs_generate_messages_cpp)
 
 add_executable(path_finding_node src/path_finding_node.cpp)
 target_link_libraries(path_finding_node 

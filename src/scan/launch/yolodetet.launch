@@ -9,5 +9,8 @@
     <!-- pointclouds filtering -->
     <node name="scan_node_test" pkg="scan" type="scan_node_test" required="true" output="screen" />
 
+    <!-- Multi-Object Tracking onde -->
+    <node name="mot2d_node" pkg="multi_object_tracking" type="mot2d_node.py" required="true" output="screen" />
+
    
 </launch>

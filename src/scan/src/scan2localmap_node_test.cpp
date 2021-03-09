@@ -153,15 +153,18 @@ Scan2LocalmapNode::Scan2LocalmapNode(ros::NodeHandle nh, ros::NodeHandle pnh): n
 
 void Scan2LocalmapNode::asymmetric_gaussian_filter(vector<int8_t> &vec, double map_resolution, int map_width, int map_height, int target_idx, double target_yaw, double target_speed, int peak_value) {
 
+
+    if(peak_value>100)
+        peak_value=100;
     // Gaussian Filter kernel
     vector<vector<int8_t> > agf_kernel;
     // double kernel_range = 2.4 * 2;
-    double kernel_range = 2.5 * 2;
+    double kernel_range = 5 * 2;
     double max_kernel_range = kernel_range / 2 * 1.0000001;
     for(double y = -kernel_range / 2 ; y <= max_kernel_range; y += map_resolution){
         vector<int8_t> tmp_row;
         for(double x = -kernel_range / 2; x <= max_kernel_range; x += map_resolution){
-            double sigma_head = max(target_speed , 0.5);
+            double sigma_head = 0.75;
             // double sigma_head = 0.5;
             double sigma_side = sigma_head * 2 / 5;
             double sigma_rear = sigma_head / 2;
@@ -203,8 +206,8 @@ void Scan2LocalmapNode::asymmetric_gaussian_filter(vector<int8_t> &vec, double m
             else if(op_idx < 0 || op_idx > max_map_idx) continue;          // upper and bottom bound
             else if(abs((op_idx % map_width) - (target_idx % map_width)) > bound) continue;  // left and right bound
             else{
-                int tmp_val = op_kernel_val + vec[op_idx];
-                vec[op_idx] = (tmp_val >= 100)? 100 : tmp_val;
+                //int tmp_val = op_kernel_val + vec[op_idx];
+                vec[op_idx] = (op_kernel_val >= 100)? 100 : op_kernel_val;
             }
         }
     }
@@ -333,8 +336,8 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
     // Convert  ROS PointCloud2 --> PCL PointCloudXYZ
     PointCloudXYZPtr cloud_raw(new PointCloudXYZ);
     PointCloudXYZPtr cloud_transformed(new PointCloudXYZ);
-    pcl::fromROSMsg(cloud_msg, *cloud_raw);
-    pcl_ros::transformPointCloud(*cloud_raw, *cloud_transformed, tf_base2camera_);
+    pcl::fromROSMsg(cloud_msg, *cloud_transformed);
+    //pcl_ros::transformPointCloud(*cloud_raw, *cloud_transformed, tf_base2camera_);
     //apply filter
     PointCloudXYZPtr cloud_filtered(new PointCloudXYZ);
     pcl::PassThrough<pcl::PointXYZ> pass;
@@ -360,8 +363,8 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
     int map_limit = map_width * map_height;
 
     for(int i = 0; i < cloud_filtered->points.size(); i++) {
-        double laser_x = cloud_filtered->points[i].z;
-        double laser_y = -cloud_filtered->points[i].x+ 0.3;
+        double laser_x = cloud_filtered->points[i].z+0.3;
+        double laser_y = -cloud_filtered->points[i].x;
         //check if point is out of range
         if(fabs(laser_x) > map_height * resolution / 2)
             continue;
@@ -427,15 +430,13 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
             if(speed > 0.5)
                 speed = 0.5;
             double dangerous = 200*msg_ptr->trks_list[i].dangerous;
-            if(dangerous > 100)
-                dangerous = 100;
             // Calculate object position in local map
             int map_x = round((pt_base.getX() - map_origin_x) / resolution);
             int map_y = round((pt_base.getY() - map_origin_y) / resolution);
             int idx = map_y * map_width + map_x;
 
             if((0 < idx) && (idx < map_limit) && (speed > 0.1)){
-                asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous);
+                asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous*(1-0.02*j));
             }
             else if((0 < idx) && (idx < map_limit) && (speed <= 0.1)){
                 yaw = atan2(-msg_ptr->trks_list[i].y,-msg_ptr->trks_list[i].x);

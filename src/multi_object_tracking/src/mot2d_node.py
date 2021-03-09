@@ -47,13 +47,15 @@ class MultiObjectTrackingNode(object):
         rospy.on_shutdown(self.shutdown_cb)
         self.last_time = None
 
+
+
         # Tracker
         self.mot_tracker = AB3DMOT(max_age=6, min_hits=2)
 
         self.pub_trk3d_vis = rospy.Publisher('trk3d_vis', MarkerArray, queue_size=1)
         self.pub_trk3d_result = rospy.Publisher('trk3d_result', Trk3DArray, queue_size=1)
         self.sub_det3d = rospy.Subscriber("det3d_result", Det3DArray, self.det_result_cb, queue_size=5)
-        self.sub_odom = rospy.Subscriber("odom", Odometry, self.odom_cb, queue_size=1)
+        self.sub_odom = rospy.Subscriber("/odometry/filtered", Odometry, self.odom_cb, queue_size=1)
 
         # Ego velocity init
         self.ego_velocity = Vector3()
@@ -63,11 +65,14 @@ class MultiObjectTrackingNode(object):
 
     def odom_cb(self, odom_msg):
         self.ego_velocity = odom_msg.twist.twist.linear
+        print("vx",self.ego_velocity.x)
+        print("vy",self.ego_velocity.y)
 
 
     def det_result_cb(self, msg):
         dets_list = None
         info_list = None
+        
         for idx, det in enumerate(msg.dets_list):
             if dets_list is None:
                 dets_list = np.array([det.x, det.y, det.radius], dtype=np.float32)
@@ -126,6 +131,7 @@ class MultiObjectTrackingNode(object):
             '''
                 x, y, r, vx, vy, id, confidence, class_id
             '''
+
             # vx, vy = np.array([d[3], d[4]]) / (time.time() - self.last_time)
             vx, vy = np.array([d[3], d[4]]) / delta_t - np.array([self.ego_velocity.x, self.ego_velocity.y])
             speed = np.sqrt(vx**2 + vy**2)       # Note: reconstruct speed by multipling the sampling rate 
@@ -138,7 +144,7 @@ class MultiObjectTrackingNode(object):
             else:
                 dangerous=2*0.5/(1+np.exp(0.3*np.sqrt(d[0]**2 + d[1]**2)))
                 #print("peolple dangerous:",dangerous)
-            #print(speed)
+            print(speed)
             # Custom ROS message
             trk3d_msg = Trk3D()
             trk3d_msg.x, trk3d_msg.y = d[0], d[1]

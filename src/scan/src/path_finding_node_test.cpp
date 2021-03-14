@@ -87,7 +87,7 @@ AstarPathfindingNode::AstarPathfindingNode(ros::NodeHandle nh, ros::NodeHandle p
     signal(SIGINT, sigint_cb);
 
     // ROS parameters
-    ros::param::param<double>("~solver_timeout_ms", solver_timeout_ms_, 40.0);
+    ros::param::param<double>("~solver_timeout_ms", solver_timeout_ms_, 100.0);
     ros::param::param<double>("~subgoal_timer_interval", subgoal_timer_interval_, 0.1);
     ros::param::param<double>("~path_start_offsetx", path_start_offsetx_, 0.44);    // trick: start path from robot front according to the robot footprint
     ros::param::param<double>("~path_start_offsety", path_start_offsety_, 0.0);
@@ -244,7 +244,7 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
     double prefer_subgoal_distance = 4.0;
     double distance_resolution = map_resolution * 4;
 
-    for(int i = 9; i >= 1; i--) {
+    for(int i = 7; i >= 2; i--) {
         double theta_from_yaxis = M_PI / 12 * (i+1);
         int max_distance_idx = std::round(prefer_subgoal_distance / distance_resolution);
         double tmp_dis;
@@ -343,14 +343,14 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
         tf::Vector3 trans_base2odom = tf_base2odom.getOrigin();
         tf::Matrix3x3 rot_base2odom = tf_base2odom.getBasis();
 
-        // if(!is_footprint_safe(localmap_ptr_, footprint_ptr_)) {
-        //     ROS_ERROR("Collision detected!!");
-        //     walkable_path_ptr_ = nav_msgs::Path::Ptr(new nav_msgs::Path());
-        //     walkable_path_ptr_->header.stamp = ros::Time();
-        //     pub_walkable_path_.publish(walkable_path_ptr_);
-        //     flag_planning_busy_ = false;
-        //     return;
-        // }
+        if(!is_footprint_safe(localmap_ptr_, footprint_ptr_)) {
+            ROS_ERROR("Collision detected!!");
+            walkable_path_ptr_ = nav_msgs::Path::Ptr(new nav_msgs::Path());
+            walkable_path_ptr_->header.stamp = ros::Time();
+            pub_walkable_path_.publish(walkable_path_ptr_);
+            flag_planning_busy_ = false;
+            return;
+        }
         //&& \is_robot_following_path(walkable_path_ptr_, tracking_progress_percentage_, tf_base2odom)
         // else if((1.0 - tracking_progress_percentage_) > 1e-3 && \
         //         is_path_safe(localmap_ptr_, walkable_path_ptr_, tf_base2odom) ){

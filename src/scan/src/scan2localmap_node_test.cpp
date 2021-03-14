@@ -57,7 +57,7 @@ public:
 
     // TF listener
     tf::TransformListener* tflistener_ptr_;
-    tf::StampedTransform tf_base2camera_;    
+    tf::StampedTransform tf_base2odom_;    
 
     // Inflation filter kernel
     vector<vector<int8_t> > inflation_kernel_;
@@ -87,21 +87,22 @@ Scan2LocalmapNode::Scan2LocalmapNode(ros::NodeHandle nh, ros::NodeHandle pnh): n
     pub_footprint_ = nh_.advertise<geometry_msgs::PolygonStamped>("footprint", 1);
 
 
-    // Prepare the transformation matrix from laser to base
+    // Prepare the transformation matrix from camera to base
     tflistener_ptr_ = new tf::TransformListener();
     ROS_INFO("Wait for TF from camera to %s in 10 seconds...", localmap_frameid_.c_str());
     try{
-        tflistener_ptr_->waitForTransform(localmap_frameid_, "camera_link",
+        tflistener_ptr_->waitForTransform(localmap_frameid_, "odom_filtered",
                                     ros::Time(), ros::Duration(10.0));
-        tflistener_ptr_->lookupTransform(localmap_frameid_, "camera_link",
-                                    ros::Time(), tf_base2camera_);
+        tflistener_ptr_->lookupTransform(localmap_frameid_, "odom_filtered",
+                                    ros::Time(), tf_base2odom_);
         ROS_INFO("Done.");
     }
     catch (tf::TransformException ex){
         ROS_ERROR("\nCannot get TF from camera to %s: %s. Aborting...", localmap_frameid_.c_str(), ex.what());
         exit(-1);
     }
-    
+
+
     // Initialize localmap meta information
     localmap_ptr_ = nav_msgs::OccupancyGrid::Ptr(new nav_msgs::OccupancyGrid());
     localmap_ptr_->info.width = localmap_range * 2 / map_resolution;
@@ -262,7 +263,7 @@ void Scan2LocalmapNode::butterworth_filter_generate(double filter_radius, int fi
         exit(-1);
     }
 }
-
+/*
 //convert laserscan to localmap 
 void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
 
@@ -328,7 +329,7 @@ void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
     pub_footprint_.publish(*footprint_ptr_);
 
 }
-
+*/
 void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr) {
 
 
@@ -343,7 +344,7 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
     pcl::PassThrough<pcl::PointXYZ> pass;
     pass.setInputCloud(cloud_transformed);
     pass.setFilterFieldName("y");
-    pass.setFilterLimits(-0.5,-0.1);
+    pass.setFilterLimits(-0.3,0.2);
     pass.setFilterLimitsNegative(false);
     pass.filter (*cloud_filtered);
     for(int i = 0; i < cloud_filtered->points.size(); i++) {
@@ -382,6 +383,17 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
             butterworth_filter(localmap_ptr_->data, map_width, map_height, idx, 100);
         }
     }
+    try{
+        tflistener_ptr_->waitForTransform(localmap_frameid_, "odom_filtered",
+                                    ros::Time(), ros::Duration(0.05));
+        tflistener_ptr_->lookupTransform(localmap_frameid_, "odom_filtered",
+                                    ros::Time(), tf_base2odom_);
+        //ROS_INFO("Done.");
+    }
+    catch (tf::TransformException ex){
+        //ROS_ERROR("\nCannot get TF from odom to %s: %s. Aborting...", localmap_frameid_.c_str(), ex.what());
+        exit(-1);
+    }
 
     // Proxemics generation
     for(int i = 0; i < msg_ptr->trks_list.size(); i++) {
@@ -418,28 +430,29 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
         {
             //cout << msg_ptr->trks_list[i].x << endl;
             tf::Vector3 pt_laser(msg_ptr->trks_list[i].x+msg_ptr->trks_list[i].vx*j*0.2, msg_ptr->trks_list[i].y+msg_ptr->trks_list[i].vy*j*0.2, 0);
-            tf::Vector3 pt_base = tf_base2camera_.getBasis() * pt_laser + tf_base2camera_.getOrigin();
+            tf::Vector3 pt_base = tf_base2odom_.getBasis() * pt_laser + tf_base2odom_.getOrigin();
             tf::Quaternion q;
-            q.setRPY(0, 0, msg_ptr->trks_list[i].yaw);
+            // q.setRPY(0, 0, msg_ptr->trks_list[i].yaw);
             double yaw, pitch, roll;
-            tf::Matrix3x3 mat(q);
-            mat = tf_base2camera_.getBasis() * mat;
-            mat.getEulerYPR(yaw, pitch, roll);
+            // tf::Matrix3x3 mat(q);
+            // mat = tf_base2camera_.getBasis() * mat;
+            // mat.getEulerYPR(yaw, pitch, roll);
 
             double speed = hypot(msg_ptr->trks_list[i].vx, msg_ptr->trks_list[i].vy);
             if(speed > 0.5)
                 speed = 0.5;
             double dangerous = 200*msg_ptr->trks_list[i].dangerous;
             // Calculate object position in local map
-            int map_x = round((pt_base.getX() - map_origin_x) / resolution);
-            int map_y = round((pt_base.getY() - map_origin_y) / resolution);
+            
+            int map_x = round((pt_base.getX()- map_origin_x) / resolution);
+            int map_y = round((pt_base.getY()- map_origin_y) / resolution);
             int idx = map_y * map_width + map_x;
 
-            if((0 < idx) && (idx < map_limit) && (speed > 0.1)){
+            if((0 < idx) && (idx < map_limit) && (speed > 0.2)){
                 asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous*(1-0.02*j));
             }
-            else if((0 < idx) && (idx < map_limit) && (speed <= 0.1)){
-                yaw = atan2(-msg_ptr->trks_list[i].y,-msg_ptr->trks_list[i].x);
+            else if((0 < idx) && (idx < map_limit) && (speed <= 0.2)){
+                yaw = atan2(-pt_base.getY(),-pt_base.getX());
                 asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, yaw, speed,dangerous);
             }
             

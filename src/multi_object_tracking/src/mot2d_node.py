@@ -17,6 +17,7 @@ import argparse
 import os
 import sys
 import math
+import tf
 import time
 import copy
 import numpy as np
@@ -45,6 +46,7 @@ def euler_to_quaternion(roll, pitch, yaw):
 class MultiObjectTrackingNode(object):
     def __init__(self):
         rospy.on_shutdown(self.shutdown_cb)
+        
         self.last_time = None
 
 
@@ -59,14 +61,15 @@ class MultiObjectTrackingNode(object):
 
         # Ego velocity init
         self.ego_velocity = Vector3()
-        
+        self.ego_theta = Vector3()
         rospy.loginfo(rospy.get_name() + ' is ready.')
 
 
     def odom_cb(self, odom_msg):
         self.ego_velocity = odom_msg.twist.twist.linear
-        print("vx",self.ego_velocity.x)
-        print("vy",self.ego_velocity.y)
+        self.ego_theta = odom_msg.twist.twist.angular
+        # print("vx",self.ego_velocity.x)
+        # print("vy",self.ego_velocity.y)
 
 
     def det_result_cb(self, msg):
@@ -131,9 +134,9 @@ class MultiObjectTrackingNode(object):
             '''
                 x, y, r, vx, vy, id, confidence, class_id
             '''
-
+            d_now = np.sqrt(d[0]**2 + d[1]**2)
             # vx, vy = np.array([d[3], d[4]]) / (time.time() - self.last_time)
-            vx, vy = np.array([d[3], d[4]]) / delta_t - np.array([self.ego_velocity.x, self.ego_velocity.y])
+            vx, vy = np.array([d[3], d[4]]) / delta_t #- np.array([self.ego_velocity.x, self.ego_velocity.y])-np.array([d_now*math.sin(self.ego_theta.z),d_now*math.cos(self.ego_theta.z)])-
             speed = np.sqrt(vx**2 + vy**2)       # Note: reconstruct speed by multipling the sampling rate 
             yaw = np.arctan2(vy, vx) 
             if(speed>2):
@@ -144,10 +147,12 @@ class MultiObjectTrackingNode(object):
             else:
                 dangerous=2*0.5/(1+np.exp(0.3*np.sqrt(d[0]**2 + d[1]**2)))
                 #print("peolple dangerous:",dangerous)
-            print(speed)
+            #print(speed)
             # Custom ROS message
             trk3d_msg = Trk3D()
             trk3d_msg.x, trk3d_msg.y = d[0], d[1]
+            # print("peolple x:",trk3d_msg.x)
+            # print("peolple y:",trk3d_msg.y)
             trk3d_msg.radius = d[2]
             trk3d_msg.vx, trk3d_msg.vy = vx, vy
             trk3d_msg.yaw = yaw
@@ -155,10 +160,10 @@ class MultiObjectTrackingNode(object):
             trk3d_msg.class_id = int(d[7])
             trk3d_msg.dangerous = dangerous
             trk3d_array.trks_list.append(trk3d_msg)
-            # print("peolple speed:",speed)
+            print("peolple speed:",speed)
             # Visualization
             marker = Marker()
-            marker.header.frame_id = 'camera_link'
+            marker.header.frame_id = 'odom_filtered'
             marker.header.stamp = rospy.Time()
             marker.ns = 'object'
             marker.id = idx
@@ -172,7 +177,7 @@ class MultiObjectTrackingNode(object):
             marker.color.a = 0.5 #The alpha of the bounding-box
             marker.pose.position.x = d[0]
             marker.pose.position.y = d[1]
-            marker.pose.position.z = 0
+            marker.pose.position.z = 0.5
             q = euler_to_quaternion(0, 0, yaw)
             marker.pose.orientation.x = q[0]
             marker.pose.orientation.y = q[1]
@@ -182,7 +187,7 @@ class MultiObjectTrackingNode(object):
 
             # Show tracking ID
             str_marker = Marker()
-            str_marker.header.frame_id = 'camera_link'
+            str_marker.header.frame_id = 'odom_filtered'
             str_marker.header.stamp = rospy.Time()
             str_marker.ns = 'text'
             str_marker.id = idx
@@ -193,7 +198,7 @@ class MultiObjectTrackingNode(object):
             str_marker.color.a = 1.0
             str_marker.pose.position.x = d[0]
             str_marker.pose.position.y = d[1]
-            str_marker.pose.position.z = 0
+            str_marker.pose.position.z = 0.5
             str_marker.lifetime = rospy.Duration(MARKER_LIFETIME)
             str_marker.type = Marker.TEXT_VIEW_FACING
             str_marker.action = Marker.ADD
@@ -228,5 +233,6 @@ class MultiObjectTrackingNode(object):
 if __name__ == '__main__':
     rospy.init_node('mot_node', anonymous=False)
 
+    
     node = MultiObjectTrackingNode()
     rospy.spin()

@@ -48,8 +48,8 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
         
     // }
     pcl::CropBox<pcl::PointXYZ> box_filter_; 
-    box_filter_.setMax(Eigen::Vector4f(4, 0.35, 8.0, 1.0));
-    box_filter_.setMin(Eigen::Vector4f(-4, -1.2, 0, 1.0));
+    box_filter_.setMax(Eigen::Vector4f(4, 0.55, 8.0, 1.0));
+    box_filter_.setMin(Eigen::Vector4f(-4, -1.1, 0, 1.0));
     box_filter_.setKeepOrganized(false);
     box_filter_.setNegative(false);
     box_filter_.setInputCloud(cloud_raw);

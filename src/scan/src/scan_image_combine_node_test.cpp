@@ -100,6 +100,7 @@ public:
     ScanImageCombineNode(ros::NodeHandle nh, ros::NodeHandle pnh);
     void img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_ptr, const sensor_msgs::PointCloud2ConstPtr &cloud_raw_ptr);
     void separate_outlier_points(PointCloudXYZPtr cloud_in, PointCloudXYZPtr cloud_out);
+    void odom_transformed(tf::Vector3 &input,tf::Vector3 &output,tf::StampedTransform tf_base2odom_);
     bool is_interest_class(string class_name);
     cv::Point2d point_pointcloud2pixel(double x_from_camera, double y_from_camera, double z_from_camera);
 
@@ -115,6 +116,13 @@ public:
     ros::Publisher pub_colored_pc_;
     ros::Publisher pub_detection3d_;
     ros::ServiceClient yolov4_detect_;  // ROS Service client
+
+    // TF listener
+    tf::TransformListener* tflistener_ptr_;
+    tf::StampedTransform tf_base2odom_;    
+
+    string localmap_frameid_;
+
     // Message filters
     message_filters::Subscriber<sensor_msgs::PointCloud2> scan_sub_;
     message_filters::Subscriber<cv_bridge::CvImage> image_sub_;
@@ -134,6 +142,7 @@ ScanImageCombineNode::ScanImageCombineNode(ros::NodeHandle nh, ros::NodeHandle p
     ros::param::param<string>("~scan_topic", scan_topic, "/scan_pointcloud_filtered");
     ros::param::param<string>("~img_topic", img_topic, "/camera/color/image_raw"); 
     ros::param::param<string>("~caminfo_topic", caminfo_topic, "/camera/color/camera_info"); 
+    ros::param::param<string>("~localmap_frameid", localmap_frameid_, "base_link");
 
     // ROS publisher & subscriber & message filter
     pub_combined_image_ = nh_.advertise<sensor_msgs::Image>("debug_reprojection", 1);
@@ -152,6 +161,22 @@ ScanImageCombineNode::ScanImageCombineNode(ros::NodeHandle nh, ros::NodeHandle p
         exit(-1);
     }
     yolov4_detect_ = nh_.serviceClient<walker_msgs::Detection2DTrigger>(yolo_srv_name);
+
+
+    // Prepare the transformation matrix from odom to base
+    tflistener_ptr_ = new tf::TransformListener();
+    ROS_INFO("Wait for TF from odom to %s in 10 seconds...", localmap_frameid_.c_str());
+    try{
+        tflistener_ptr_->waitForTransform(localmap_frameid_, "odom_filtered",
+                                    ros::Time(), ros::Duration(10.0));
+        tflistener_ptr_->lookupTransform(localmap_frameid_, "odom_filtered",
+                                    ros::Time(), tf_base2odom_);
+        ROS_INFO("Done.");
+    }
+    catch (tf::TransformException ex){
+        ROS_ERROR("\nCannot get TF from odom to %s: %s. Aborting...", localmap_frameid_.c_str(), ex.what());
+        exit(-1);
+    }
 
     // Prepare intrinsic matrix
     boost::shared_ptr<sensor_msgs::CameraInfo const> caminfo_ptr;
@@ -265,7 +290,7 @@ cv::Point2d ScanImageCombineNode::point_pointcloud2pixel(double x_from_camera, d
     // Normalization: z --> 1
     pt_camframe.setX(pt_camframe.getX() / pt_camframe.getZ());
     pt_camframe.setY(pt_camframe.getY() / pt_camframe.getZ());
-    pt_camframe.setZ(1.0);
+    pt_camframe.setZ(1.0);  
 
     // Trasform to pixel frame
     cv::Mat uv = K_ * (cv::Mat_<double>(3, 1) << pt_camframe.getX(), pt_camframe.getY(), pt_camframe.getZ());
@@ -274,8 +299,29 @@ cv::Point2d ScanImageCombineNode::point_pointcloud2pixel(double x_from_camera, d
     return pt_pixelframe;
 }
 
+void ScanImageCombineNode::odom_transformed(tf::Vector3 &input,tf::Vector3 &output,tf::StampedTransform tf_base2odom_){
+    
+    
+    
+    // tf::Vector3 trans_base2odom = tf_base2odom_.getOrigin();
+    // tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis();
+    tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis().transpose();
+    tf::Vector3 trans_base2odom = rot_base2odom * tf_base2odom_.getOrigin() * (-1);
+    // trans_base2odom .setY(-trans_base2odom.getY());
+    //cout<<trans_base2odom.getX()<<endl;
+    output=rot_base2odom*input+trans_base2odom;
+    //cout<<"input"<<input.getY()<<endl;
+    //cout<<"input.x"<<input.getX()<<endl;
+    //cout<<"input.y"<<input.getY()<<endl;
+    // cout<<"input.z"<<input.getZ()<<endl;
+    //cout<<"output.x"<<output.getX()<<endl;
+    //cout<<"output.y"<<output.getY()<<endl;
+    // cout<<"output.z"<<output.getZ()<<endl;
+    
+}
 
 void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_ptr,  const sensor_msgs::PointCloud2ConstPtr &cloud_raw_ptr){
+    
     // Object list init
     obj_list.clear();
     visualization_msgs::MarkerArray marker_array;
@@ -314,6 +360,22 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
     PointCloudXYZRGBPtr cloud_colored(new PointCloudXYZRGB);
     // Convert laserscan points to pixel points
     std::vector<cv::Point2d> pts_uv;
+
+
+    
+    
+    //ROS_INFO("Wait for TF from odom to %s in 10 seconds...", localmap_frameid_.c_str());
+    try{
+        tflistener_ptr_->waitForTransform(localmap_frameid_,"odom_filtered",
+                                    ros::Time(), ros::Duration(0.05));
+        tflistener_ptr_->lookupTransform(localmap_frameid_,"odom_filtered",
+                                    ros::Time(), tf_base2odom_);
+        //ROS_INFO("Done.");
+    }
+    catch (tf::TransformException ex){
+        //ROS_ERROR("\nCannot get TF from odom to %s: %s. Aborting...", localmap_frameid_.c_str(), ex.what());
+        exit(-1);
+    }
     //cout<<cloud_msg->points.size()<<endl;
     for (int i = 0; i < cloud_msg->points.size(); i++) {
         cv::Point2d pt_uv = point_pointcloud2pixel(cloud_msg->points[i].x, cloud_msg->points[i].y, cloud_msg->points[i].z); 
@@ -337,7 +399,7 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
     // Remove outlier for each object cloud
     for(int i = 0; i < obj_list.size(); i++) {
         if(obj_list[i].cloud->points.size() > 1){
-            cout<<obj_list[i].cloud->points.size()<<endl;
+            //cout<<obj_list[i].cloud->points.size()<<endl;
             // Clustering and outlier removing
             
             separate_outlier_points(obj_list[i].cloud, obj_list[i].cloud);
@@ -367,6 +429,14 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
             obj_list[i].location.x = center[0];
             obj_list[i].location.y = center[1];
             obj_list[i].location.z = center[2];
+            tf::Vector3 position_vec(obj_list[i].location.z+0.41,
+                                     -obj_list[i].location.x, 
+                                     obj_list[i].location.y);
+            tf::Vector3 position_vec1;
+            odom_transformed(position_vec,position_vec1,tf_base2odom_);
+            obj_list[i].location.x=position_vec1.getX();
+            obj_list[i].location.y=position_vec1.getY();
+            obj_list[i].location.z=position_vec1.getZ();
             double tmp_r1 = sqrt(pow(max_point.x - center[0], 2) + pow(max_point.y - center[1], 2));
             double tmp_r2 = sqrt(pow(min_point.x - center[0], 2) + pow(min_point.y - center[1], 2));
             obj_list[i].radius = std::max(tmp_r1, tmp_r2);
@@ -374,9 +444,13 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
 
             // Pack the custom ros package
             walker_msgs::Det3D det_msg;
-            det_msg.x = obj_list[i].location.z;
-            det_msg.y = -obj_list[i].location.x;
-            det_msg.z = obj_list[i].location.y;
+            det_msg.x = obj_list[i].location.x;
+            det_msg.y = obj_list[i].location.y;
+            det_msg.z = obj_list[i].location.z;
+            
+            
+            //cout<< "x0:" << det_msg.x<< endl;
+            //cout<< "y0:" << det_msg.y << endl;
             det_msg.yaw = 0;
             det_msg.radius = obj_list[i].radius;
             det_msg.confidence = obj_list[i].box.score;
@@ -394,17 +468,17 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
             marker.lifetime = ros::Duration(0.2);
             // marker.lifetime = ros::Duration(10.0);
             marker.action = visualization_msgs::Marker::ADD;
-            marker.pose.position.x = obj_list[i].location.x;
-            marker.pose.position.y = obj_list[i].location.y;
-            marker.pose.position.z = obj_list[i].location.z;
+            marker.pose.position.x = center[0];
+            marker.pose.position.y = center[1];
+            marker.pose.position.z = center[2];
             marker.pose.orientation.x = 0.0;
             marker.pose.orientation.y = 0.0;
             marker.pose.orientation.z = 0.0;
             marker.pose.orientation.w = 1.0;
             double distance =sqrt(obj_list[i].location.x*obj_list[i].location.x+obj_list[i].location.z*obj_list[i].location.z);
-            cout<< "d:" << distance << endl;
-            cout<< "x:" << obj_list[i].location.x << endl;
-            cout<< "z:" << obj_list[i].location.z << endl;
+            //cout<< "d:" << distance << endl;
+            //cout<< "x:" << obj_list[i].location.x << endl;
+            //cout<< "z:" << obj_list[i].location.z << endl;
             // marker.scale.x = marker.scale.y = obj_list[i].radius * 2;
             marker.scale.x = 0.8;
             marker.scale.y = 1.6;
@@ -423,7 +497,7 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
     if(pub_colored_pc_.getNumSubscribers() > 0) {
         sensor_msgs::PointCloud2 colored_cloud_msg;
         pcl::toROSMsg(*cloud_colored, colored_cloud_msg);
-        colored_cloud_msg.header.frame_id = "camera_link";
+        colored_cloud_msg.header.frame_id = cloud_raw_ptr->header.frame_id;
         pub_colored_pc_.publish(colored_cloud_msg);
     }
     if(pub_combined_image_.getNumSubscribers() > 0){
@@ -444,11 +518,11 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
 
     // Show object infomation
     if(obj_list.size() > 0){
-        cout << "Prediction result:" << endl;
+        //  cout << "Prediction result:" << endl;
         for(int i = 0; i < obj_list.size(); i++) {
-            cout << obj_list[i].box.class_name << ", cloud size: " << obj_list[i].cloud->points.size() << endl; 
+            //cout << obj_list[i].box.class_name << ", cloud size: " << obj_list[i].cloud->points.size() << endl; 
         }
-        cout << "\n===================" << endl;
+        //cout << "\n===================" << endl;
     }
 }
 

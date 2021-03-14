@@ -55,7 +55,7 @@ class KalmanBoxTracker(object):
 
 		# self.kf.Q[-1,-1] *= 0.01    # process uncertainty
 		# self.kf.Q[3:, 3:] *= 5e-1
-		self.kf.Q[3:, 3:] *= 0.01
+		self.kf.Q[3:, 3:] *= 0.008
 		self.kf.x[:3] = det2D.reshape((3, 1)) # x, y, r
 
 		self.time_since_update = 0

@@ -4,7 +4,7 @@
   <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
   </include>
   <!-- rviz -->
-  <node pkg="rviz" type="rviz" name="rviz"/>
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find realsense2_camera)/../../subgoal_timer_interval.rviz" />
   <!-- pointscloud filter -->
   <node name="realsense_node" pkg="scan" type="realsense_node" required="true" output="screen" />
 

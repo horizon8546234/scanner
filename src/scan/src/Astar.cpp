@@ -28,15 +28,15 @@ int Astar::Node::get_score() {
 // Constructor
 Astar::Solver::Solver() {
     directions_ = {
-        {0, 1}, {1, 0}, {0, -1}, {-1, 0},
-        {-1, 1}, {1, 1}, {1, -1}, {-1, -1} 
+        {0, 1}, {1, 0}, {0, -1}, {1, 1},
+        {1, -1},// {-1, 1}, {-1, -1}  {-1, 0},
     };
     set_heuristic(&Heuristic::manhattan);
     set_diagonal_move(true);
 }
 
 void Astar::Solver::set_diagonal_move(bool enable) {
-    num_directions_ = (enable ? 8 : 4);
+    num_directions_ = (enable ? 5 : 4);
 }
 
 void Astar::Solver::set_heuristic(HeuristicFunc h_func) {

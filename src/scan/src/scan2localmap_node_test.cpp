@@ -344,7 +344,7 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
     pcl::PassThrough<pcl::PointXYZ> pass;
     pass.setInputCloud(cloud_transformed);
     pass.setFilterFieldName("y");
-    pass.setFilterLimits(-0.3,0.2);
+    pass.setFilterLimits(0.3,0.4);
     pass.setFilterLimitsNegative(false);
     pass.filter (*cloud_filtered);
     for(int i = 0; i < cloud_filtered->points.size(); i++) {
@@ -362,9 +362,9 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
     int map_width = localmap_ptr_->info.width;
     int map_height = localmap_ptr_->info.height;
     int map_limit = map_width * map_height;
-
+    int count=0;
     for(int i = 0; i < cloud_filtered->points.size(); i++) {
-        double laser_x = cloud_filtered->points[i].z+0.3;
+        double laser_x = cloud_filtered->points[i].z+0.51;
         double laser_y = -cloud_filtered->points[i].x;
         //check if point is out of range
         if(fabs(laser_x) > map_height * resolution / 2)
@@ -381,11 +381,16 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
             if(localmap_ptr_->data[idx] == 100)
                 continue;
             butterworth_filter(localmap_ptr_->data, map_width, map_height, idx, 100);
+            count++;
+
         }
     }
+    cout<< cloud_filtered->points.size()<<endl;
+    cout<<"count"<<count<<endl;
+    
     try{
         tflistener_ptr_->waitForTransform(localmap_frameid_, "odom_filtered",
-                                    ros::Time(), ros::Duration(0.05));
+                                    ros::Time(), ros::Duration(0));
         tflistener_ptr_->lookupTransform(localmap_frameid_, "odom_filtered",
                                     ros::Time(), tf_base2odom_);
         //ROS_INFO("Done.");
@@ -394,7 +399,7 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
         //ROS_ERROR("\nCannot get TF from odom to %s: %s. Aborting...", localmap_frameid_.c_str(), ex.what());
         exit(-1);
     }
-
+    
     // Proxemics generation
     for(int i = 0; i < msg_ptr->trks_list.size(); i++) {
         // Convert object pose from laser coordinate to base coordinate
@@ -430,7 +435,8 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
         {
             //cout << msg_ptr->trks_list[i].x << endl;
             tf::Vector3 pt_laser(msg_ptr->trks_list[i].x+msg_ptr->trks_list[i].vx*j*0.2, msg_ptr->trks_list[i].y+msg_ptr->trks_list[i].vy*j*0.2, 0);
-            tf::Vector3 pt_base = tf_base2odom_.getBasis() * pt_laser + tf_base2odom_.getOrigin();
+            // tf::Vector3 pt_base = tf_base2odom_.getBasis() * pt_laser + tf_base2odom_.getOrigin();
+            tf::Vector3 pt_base = tf_base2odom_ * pt_laser;
             tf::Quaternion q;
             // q.setRPY(0, 0, msg_ptr->trks_list[i].yaw);
             double yaw, pitch, roll;
@@ -448,10 +454,10 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
             int map_y = round((pt_base.getY()- map_origin_y) / resolution);
             int idx = map_y * map_width + map_x;
 
-            if((0 < idx) && (idx < map_limit) && (speed > 0.2)){
+            if((0 < idx) && (idx < map_limit) && (speed > 0.15)){
                 asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous*(1-0.02*j));
             }
-            else if((0 < idx) && (idx < map_limit) && (speed <= 0.2)){
+            else if((0 < idx) && (idx < map_limit) && (speed <= 0.15)){
                 yaw = atan2(-pt_base.getY(),-pt_base.getX());
                 asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, yaw, speed,dangerous);
             }

@@ -167,9 +167,9 @@ ScanImageCombineNode::ScanImageCombineNode(ros::NodeHandle nh, ros::NodeHandle p
     tflistener_ptr_ = new tf::TransformListener();
     ROS_INFO("Wait for TF from odom to %s in 10 seconds...", localmap_frameid_.c_str());
     try{
-        tflistener_ptr_->waitForTransform(localmap_frameid_, "odom_filtered",
+        tflistener_ptr_->waitForTransform( "odom_filtered", localmap_frameid_,
                                     ros::Time(), ros::Duration(10.0));
-        tflistener_ptr_->lookupTransform(localmap_frameid_, "odom_filtered",
+        tflistener_ptr_->lookupTransform( "odom_filtered", localmap_frameid_,
                                     ros::Time(), tf_base2odom_);
         ROS_INFO("Done.");
     }
@@ -301,15 +301,15 @@ cv::Point2d ScanImageCombineNode::point_pointcloud2pixel(double x_from_camera, d
 
 void ScanImageCombineNode::odom_transformed(tf::Vector3 &input,tf::Vector3 &output,tf::StampedTransform tf_base2odom_){
     
+    output = tf_base2odom_ * input;
     
-    
-    // tf::Vector3 trans_base2odom = tf_base2odom_.getOrigin();
-    // tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis();
-    tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis().transpose();
-    tf::Vector3 trans_base2odom = rot_base2odom * tf_base2odom_.getOrigin() * (-1);
+    ///tf::Vector3 trans_base2odom = tf_base2odom_.getOrigin();
+    ///tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis();
+    // tf::Matrix3x3 rot_base2odom = tf_base2odom_.getBasis().transpose();
+    // tf::Vector3 trans_base2odom = rot_base2odom * tf_base2odom_.getOrigin();
     // trans_base2odom .setY(-trans_base2odom.getY());
     //cout<<trans_base2odom.getX()<<endl;
-    output=rot_base2odom*input+trans_base2odom;
+    ///output=rot_base2odom*input+trans_base2odom;
     //cout<<"input"<<input.getY()<<endl;
     //cout<<"input.x"<<input.getX()<<endl;
     //cout<<"input.y"<<input.getY()<<endl;
@@ -366,9 +366,9 @@ void ScanImageCombineNode::img_scan_cb(const cv_bridge::CvImage::ConstPtr &cv_pt
     
     //ROS_INFO("Wait for TF from odom to %s in 10 seconds...", localmap_frameid_.c_str());
     try{
-        tflistener_ptr_->waitForTransform(localmap_frameid_,"odom_filtered",
-                                    ros::Time(), ros::Duration(0.05));
-        tflistener_ptr_->lookupTransform(localmap_frameid_,"odom_filtered",
+        tflistener_ptr_->waitForTransform("odom_filtered", localmap_frameid_,
+                                    ros::Time(), ros::Duration(0.01));
+        tflistener_ptr_->lookupTransform("odom_filtered", localmap_frameid_,
                                     ros::Time(), tf_base2odom_);
         //ROS_INFO("Done.");
     }

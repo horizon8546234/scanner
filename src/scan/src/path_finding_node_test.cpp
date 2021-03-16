@@ -244,7 +244,7 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
     double prefer_subgoal_distance = 4.0;
     double distance_resolution = map_resolution * 4;
 
-    for(int i = 7; i >= 2; i--) {
+    for(int i = 7; i >= 3; i--) {
         double theta_from_yaxis = M_PI / 12 * (i+1);
         int max_distance_idx = std::round(prefer_subgoal_distance / distance_resolution);
         double tmp_dis;
@@ -351,6 +351,38 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
             flag_planning_busy_ = false;
             return;
         }
+        else if((walkable_path_ptr_)&&(is_path_safe(localmap_ptr_, walkable_path_ptr_, tf_base2odom)))
+        {
+            walkable_path_ptr_->header.stamp = ros::Time();
+            pub_walkable_path_.publish(walkable_path_ptr_);
+            flag_planning_busy_ = false;
+            return;
+        }
+        else
+        {
+            geometry_msgs::Point subgoal_pt;
+            if(walkable_path_ptr_){
+                // Unsafe path situation
+                subgoal_pt = generate_sub_goal(localmap_ptr_, tf_base2odom);
+                ROS_WARN("Old path is not safe, generate new goal: (%.2f, %.2f)", subgoal_pt.x, subgoal_pt.y);
+            }
+            else{
+                // New plan situation
+                subgoal_pt = generate_sub_goal(localmap_ptr_, tf_base2odom);
+                ROS_WARN("No any old path,    start plan...");
+            }
+
+
+            if(std::hypot(subgoal_pt.x - path_start_offsetx_, subgoal_pt.y - path_start_offsety_) < 0.2){
+                walkable_path_ptr_ = nav_msgs::Path::Ptr(new nav_msgs::Path());
+                walkable_path_ptr_->header.stamp = ros::Time();
+                pub_walkable_path_.publish(walkable_path_ptr_);
+                flag_planning_busy_ = false;
+                return;
+            }
+        
+        
+            //subgoal_pt = generate_sub_goal(localmap_ptr_, tf_base2odom);
         //&& \is_robot_following_path(walkable_path_ptr_, tracking_progress_percentage_, tf_base2odom)
         // else if((1.0 - tracking_progress_percentage_) > 1e-3 && \
         //         is_path_safe(localmap_ptr_, walkable_path_ptr_, tf_base2odom) ){
@@ -387,8 +419,8 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
             walkable_path_ptr_ = nav_msgs::Path::Ptr(new nav_msgs::Path());
             walkable_path_ptr_->header.frame_id = path_frame_id_;
             Astar::Solver solver;
-            geometry_msgs::Point subgoal_pt;
-            subgoal_pt = generate_sub_goal(localmap_ptr_, tf_base2odom);
+            
+            
             // subgoal_pt.x = 3;
             // subgoal_pt.y = 0;
             // coordinate to map grid
@@ -424,7 +456,8 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
                 walkable_path_ptr_->header.stamp = ros::Time();
                 pub_walkable_path_.publish(walkable_path_ptr_);
             }
-                
+        
+        }        
         // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
     }

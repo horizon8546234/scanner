@@ -21,7 +21,7 @@ Kp = 1.0  # speed proportional gain
 dt = 0.1  # [s] time difference
 L = 0.6  # [m] Wheel base of vehicle
 MAX_ANGULAR_VELOCITY = 1.0
-TARGET_SPEED = 0.4 * 2
+TARGET_SPEED = 0.1 
 
 class WalkerControlNode(object):
     def __init__(self):
@@ -38,22 +38,23 @@ class WalkerControlNode(object):
         self.robot_twist = Twist()
 
         # ROS parameters
-        self.smooth_path_resolution = rospy.get_param("~map_resolution", 0.2) / 2.0     # much smoother than original path
+        self.smooth_path_resolution = rospy.get_param("~map_resolution", 0.1) / 2.0     # much smoother than original path
         self.cmd_freq               = rospy.get_param("cmd_freq", 5.0)
 
         # ROS publisher & subscriber
-        self.pub_cmd = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+        self.pub_cmd = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.pub_path_flat = rospy.Publisher('smooth_path', Path, queue_size=1)
         self.pub_tracking_progress = rospy.Publisher('tracking_progress', Float32, queue_size=1)
         self.pub_short_term_goal = rospy.Publisher('short_term_goal', PointStamped, queue_size=1)
 
-        self.sub_path = rospy.Subscriber("walkable_path", Path, self.path_cb, queue_size=1)
+        self.sub_path = rospy.Subscriber("/walkable_path", Path, self.path_cb, queue_size=1)
         self.sub_odom = rospy.Subscriber("/odometry/filtered", Odometry, self.odom_cb, queue_size=1)
 
         rospy.loginfo(rospy.get_name() + ' is ready.')
         
 
     def odom_cb(self, msg):
+        
         self.robot_pose.x = msg.pose.pose.position.x
         self.robot_pose.y = msg.pose.pose.position.y
         euler_angle = euler_from_quaternion([msg.pose.pose.orientation.x, 
@@ -65,6 +66,7 @@ class WalkerControlNode(object):
 
 
     def path_cb(self, msg):
+        
         if len(msg.poses) < 2:
             self.updated_flat_path = []
             self.flag_path_update = True

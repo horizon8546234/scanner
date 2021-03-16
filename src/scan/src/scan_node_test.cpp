@@ -47,14 +47,7 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
     //     cloud_filtered->points[i].y=0;
         
     // }
-    pcl::CropBox<pcl::PointXYZ> box_filter_; 
-    box_filter_.setMax(Eigen::Vector4f(4, 0.55, 8.0, 1.0));
-    box_filter_.setMin(Eigen::Vector4f(-4, -1.1, 0, 1.0));
-    box_filter_.setKeepOrganized(false);
-    box_filter_.setNegative(false);
-    box_filter_.setInputCloud(cloud_raw);
-    box_filter_.filter(*cloud_raw);
-    //cout << cloud_raw->points.size()<< endl;
+
 
     pcl::VoxelGrid<pcl::PointXYZ> sor;
     PointCloudXYZPtr cloud_filtered(new PointCloudXYZ);
@@ -62,6 +55,18 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
     sor.setLeafSize (0.05f, 0.05f, 0.05f);
     sor.filter (*cloud_filtered);
     //cout << cloud_filtered->points.size()<< endl;
+
+
+    pcl::CropBox<pcl::PointXYZ> box_filter_; 
+    box_filter_.setMax(Eigen::Vector4f(4, 0.55, 8.0, 1.0));
+    box_filter_.setMin(Eigen::Vector4f(-4, -1.1, 0, 1.0));
+    box_filter_.setKeepOrganized(false);
+    box_filter_.setNegative(false);
+    box_filter_.setInputCloud(cloud_filtered);
+    box_filter_.filter(*cloud_filtered);
+    //cout << cloud_raw->points.size()<< endl;
+
+    
 
       // Remove outlier
     pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;

@@ -89,7 +89,7 @@ AstarPathfindingNode::AstarPathfindingNode(ros::NodeHandle nh, ros::NodeHandle p
 
     // ROS parameters
     ros::param::param<double>("~solver_timeout_ms", solver_timeout_ms_, 100.0);
-    ros::param::param<double>("~subgoal_timer_interval", subgoal_timer_interval_, 0.1);
+    ros::param::param<double>("~subgoal_timer_interval", subgoal_timer_interval_, 0.5);
     ros::param::param<double>("~path_start_offsetx", path_start_offsetx_, 0.44);    // trick: start path from robot front according to the robot footprint
     ros::param::param<double>("~path_start_offsety", path_start_offsety_, 0.0);
     // Fixed parameters
@@ -215,7 +215,7 @@ bool AstarPathfindingNode::is_path_safe(const nav_msgs::OccupancyGrid::ConstPtr 
         int map_x = std::round((vec_transformed.getX() - map_origin_x) / map_resolution);
         int map_y = std::round((vec_transformed.getY() - map_origin_y) / map_resolution);
         int idx = map_y * map_width + map_x;
-        if(map_msg_ptr->data[idx] >= 40 || map_msg_ptr->data[idx] < 0) {
+        if(map_msg_ptr->data[idx] >= 60 || map_msg_ptr->data[idx] < 0) {
             return false;
         }
     }
@@ -262,7 +262,7 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
                 int map_x = std::round((0.1*k * std::sin(theta_from_yaxis) - map_origin_x + path_start_offsetx_) / map_resolution);
                 int map_y = std::round((0.1*k * std::cos(theta_from_yaxis) - map_origin_y + path_start_offsety_) / map_resolution);
                 int idx = map_y * map_width + map_x;
-                if(map_msg_ptr->data[idx]>50)
+                if(map_msg_ptr->data[idx]>90)
                 {
                     crush=true;
                     
@@ -286,7 +286,7 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
                     // cout<<"pt.y"<<pt.y<<endl;
                     // cout<<"pt_last.x"<<pt_last.x<<endl;
                     // cout<<"pt_last.y"<<pt_last.y<<endl;
-                    if(sqrt(pow(pt.x - pt_last.x, 2)+pow(pt.y - pt_last.y, 2))>0.6)
+                    if(sqrt(pow(pt.x - pt_last.x, 2)+pow(pt.y - pt_last.y, 2))>0.8)
                     {
                         
                         // Calculate score
@@ -353,40 +353,22 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
     // Find the farthest walkable space
     int index = argmax(candidate_score_list.begin(), candidate_score_list.end());
     cout << "index" << index<<endl;
-    tf::Vector3 subgoal_vec;
-    geometry_msgs::Point subgoal_pt;
-    if(index==0)
-    {
-        // Convert goal point from base_link coordinate to odom coordinate
-        tf::Vector3 subgoal_vec(0.44, 
-                                0, 
-                                0);
-        subgoal_pt.x = path_start_offsetx_;
-        subgoal_pt.y = path_start_offsety_;
-        cout << "No way to go,just stay!!!" << index<<endl;
-    }
-    else
-    {
-        // Convert goal point from base_link coordinate to odom coordinate
-        tf::Vector3 subgoal_vec(mkr_subgoal_candidate_.points[index * 2 + 1].x, 
-                                mkr_subgoal_candidate_.points[index * 2 + 1].y, 
-                                mkr_subgoal_candidate_.points[index * 2 + 1].z);
-        subgoal_pt.x = mkr_subgoal_candidate_.points[index * 2 + 1].x;
-        subgoal_pt.y = mkr_subgoal_candidate_.points[index * 2 + 1].y;
-    
-    
-    }
-    
+    // Convert goal point from base_link coordinate to odom coordinate
+    tf::Vector3 subgoal_vec(mkr_subgoal_candidate_.points[index * 2 + 1].x, 
+                            mkr_subgoal_candidate_.points[index * 2 + 1].y, 
+                            mkr_subgoal_candidate_.points[index * 2 + 1].z);
     subgoal_vec = rot_base2odom * subgoal_vec + trans_base2odom;
     mrk_subgoal_.pose.position.x = subgoal_vec.getX();
     mrk_subgoal_.pose.position.y = subgoal_vec.getY();
     mrk_subgoal_.header.stamp = ros::Time();
     mrk_array.markers.push_back(mrk_subgoal_);
+    
     // Publish marker array
     pub_marker_array_.publish(mrk_array);
 
-    
-    
+    geometry_msgs::Point subgoal_pt;
+    subgoal_pt.x = mkr_subgoal_candidate_.points[index * 2 + 1].x;
+    subgoal_pt.y = mkr_subgoal_candidate_.points[index * 2 + 1].y;
     cout << "subgoal_pt.x" << subgoal_pt.x<<endl;
     cout << "subgoal_pt.y" << subgoal_pt.y<<endl;
     return subgoal_pt;
@@ -428,13 +410,12 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
         tf::StampedTransform tf_base2odom;
         try{
             tflistener_.waitForTransform(path_frame_id_, "/base_link",
-                                            ros::Time(0), ros::Duration(subgoal_timer_interval_));
+                                            localmap_ptr_->header.stamp, ros::Duration(subgoal_timer_interval_));
             tflistener_.lookupTransform(path_frame_id_, "/base_link",
-                                            ros::Time(0), tf_base2odom);
+                                            localmap_ptr_->header.stamp, tf_base2odom);
         }
         catch (tf::TransformException ex){
-            ROS_ERROR("%s",ex.what());
-            ros::Duration(1.0).sleep();
+            exit(-1);
         }
         tf::Vector3 trans_base2odom = tf_base2odom.getOrigin();
         tf::Matrix3x3 rot_base2odom = tf_base2odom.getBasis();
@@ -447,7 +428,7 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
             flag_planning_busy_ = false;
             return;
         }
-        else if((is_path_safe(localmap_ptr_, walkable_path_ptr_, tf_base2odom))&&(time<3)&&(tracking_progress_percentage_<0.9))
+        else if((is_path_safe(localmap_ptr_, walkable_path_ptr_, tf_base2odom))&&(time<1))
         {
             
             walkable_path_ptr_->header.stamp = ros::Time();

@@ -195,6 +195,7 @@ target_link_libraries(path_finding_node_test
 
 add_executable(scan2localmap_node src/scan2localmap_node.cpp)
 target_link_libraries(scan2localmap_node 
+  ${PROJECT_NAME} 
   ${catkin_LIBRARIES}
 )
 

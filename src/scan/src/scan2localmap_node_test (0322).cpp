@@ -286,7 +286,7 @@ void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
         cloud_filtered->points[i].y=0;
         
     }
-    
+
 
     // Localmap init
     fill(localmap_ptr_->data.begin(), localmap_ptr_->data.end(), 0);

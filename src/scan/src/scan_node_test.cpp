@@ -32,7 +32,8 @@ ros::Publisher pub_combined_image;
 
 void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
     // cout << "hi" << endl;
-
+    sensor_msgs::PointCloud2 output;
+    output.header.stamp=ros::Time::now();
     // // Laserscan -> ROS PointCloud2
     // sensor_msgs::PointCloud2 cloud_msg;
     // projector.projectLaser(laser_msg, cloud_msg);
@@ -47,42 +48,40 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
     //     cloud_filtered->points[i].y=0;
         
     // }
-
-
+    pcl::CropBox<pcl::PointXYZ> box_filter_; 
+    box_filter_.setMax(Eigen::Vector4f(4, 0.8, 8.0, 1.0));
+    box_filter_.setMin(Eigen::Vector4f(-4, -0.9, 0, 1.0));
+    box_filter_.setKeepOrganized(false);
+    box_filter_.setNegative(false);
+    box_filter_.setInputCloud(cloud_raw);
+    box_filter_.filter(*cloud_raw);
+    //cout << cloud_raw->points.size()<< endl;
+    //cout <<"first"<< ros::Time::now()-output.header.stamp<<endl;
     pcl::VoxelGrid<pcl::PointXYZ> sor;
     PointCloudXYZPtr cloud_filtered(new PointCloudXYZ);
     sor.setInputCloud (cloud_raw);
-    sor.setLeafSize (0.05f, 0.05f, 0.05f);
+    sor.setLeafSize (0.07f, 0.07f, 0.07f);
     sor.filter (*cloud_filtered);
     //cout << cloud_filtered->points.size()<< endl;
+    //cout <<"second"<< ros::Time::now()-output.header.stamp<<endl;
 
-
-    pcl::CropBox<pcl::PointXYZ> box_filter_; 
-    box_filter_.setMax(Eigen::Vector4f(4, 0.55, 8.0, 1.0));
-    box_filter_.setMin(Eigen::Vector4f(-4, -1.1, 0, 1.0));
-    box_filter_.setKeepOrganized(false);
-    box_filter_.setNegative(false);
-    box_filter_.setInputCloud(cloud_filtered);
-    box_filter_.filter(*cloud_filtered);
-    //cout << cloud_raw->points.size()<< endl;
-
-    
-
-      // Remove outlier
+    // Remove outlier
     pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
     PointCloudXYZPtr cloud_out(new PointCloudXYZ);
     outrem.setInputCloud(cloud_filtered);
     outrem.setRadiusSearch(0.2);
-    outrem.setMinNeighborsInRadius(30);
+    outrem.setMinNeighborsInRadius(10);
     outrem.filter(*(cloud_out));
-    
+    //cout <<"third"<< ros::Time::now()-output.header.stamp<<endl;
+
     // PointCloudXYZPtr cloud_filtered2(new PointCloudXYZ);
     // pcl::RadiusOutlierRemoval<pcl::PointXYZ> rorfilter;
     // rorfilter.setInputCloud(cloud_filtered);
     // rorfilter.setRadiusSearch(0.5);
     // rorfilter.setMinNeighborsInRadius (3);
     // rorfilter.filter (*cloud_filtered2);
-    sensor_msgs::PointCloud2 output;
+    
+    output.header.stamp= ros::Time::now();
     pcl::toROSMsg(*cloud_out, output);
     pub_combined_image.publish(output);
     

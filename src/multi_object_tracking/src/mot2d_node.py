@@ -217,7 +217,7 @@ class MultiObjectTrackingNode(object):
         self.pub_trk3d_vis.publish(marker_array)
         
         trk3d_array.header.frame_id = msg.header.frame_id
-        trk3d_array.header.stamp = rospy.Time()
+        trk3d_array.header.stamp = rospy.Time().now()
         trk3d_array.pointcloud = msg.pointcloud
         self.pub_trk3d_result.publish(trk3d_array)
 

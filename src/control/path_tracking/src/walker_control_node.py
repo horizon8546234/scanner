@@ -10,7 +10,7 @@ from CubicSpline import cubic_spline_planner
 
 # ROS
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped, Quaternion, Point, PointStamped, Pose2D
+from geometry_msgs.msg import Twist, PoseStamped, Quaternion, Point, PointStamped, Pose2D,WrenchStamped
 from nav_msgs.msg import Path, Odometry
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from std_msgs.msg import Float32
@@ -20,8 +20,8 @@ k = 0.5  # control gain
 Kp = 1.0  # speed proportional gain
 dt = 0.1  # [s] time difference
 L = 0.6  # [m] Wheel base of vehicle
-MAX_ANGULAR_VELOCITY = 1.0
-TARGET_SPEED = 0.1 
+MAX_ANGULAR_VELOCITY = 0.8
+TARGET_SPEED = 0.3 
 
 class WalkerControlNode(object):
     def __init__(self):
@@ -44,11 +44,12 @@ class WalkerControlNode(object):
         # ROS publisher & subscriber
         self.pub_cmd = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.pub_path_flat = rospy.Publisher('smooth_path', Path, queue_size=1)
-        self.pub_tracking_progress = rospy.Publisher('tracking_progress', Float32, queue_size=1)
+        self.pub_tracking_progress = rospy.Publisher('/tracking_progress', Float32, queue_size=1)
         self.pub_short_term_goal = rospy.Publisher('short_term_goal', PointStamped, queue_size=1)
 
         self.sub_path = rospy.Subscriber("/walkable_path", Path, self.path_cb, queue_size=1)
         self.sub_odom = rospy.Subscriber("/odometry/filtered", Odometry, self.odom_cb, queue_size=1)
+        self.sub_force = rospy.Subscriber("/force_filtered", WrenchStamped, self.force_cb, queue_size=1)
 
         rospy.loginfo(rospy.get_name() + ' is ready.')
         
@@ -64,6 +65,9 @@ class WalkerControlNode(object):
         self.robot_pose.theta = euler_angle[2]
         self.robot_twist = msg.twist.twist
 
+    def force_cb(self, msg):
+        
+        self.force=msg.wrench.force.y
 
     def path_cb(self, msg):
         
@@ -78,9 +82,13 @@ class WalkerControlNode(object):
         else:
             path_x_raw = []
             path_y_raw = []
-            for i in range(len(msg.poses)-1, -1, -1):
-                path_x_raw.append(msg.poses[i].pose.position.x)
-                path_y_raw.append(msg.poses[i].pose.position.y)
+            path_x_raw.append(msg.poses[(len(msg.poses)-1)].pose.position.x)
+            path_y_raw.append(msg.poses[(len(msg.poses)-1)].pose.position.y)    
+            for i in range((len(msg.poses)-1)-1, -1, -1):
+                if(i%4==0)or(i==0):
+                    path_x_raw.append(msg.poses[i].pose.position.x)
+                    path_y_raw.append(msg.poses[i].pose.position.y)
+                    #print(i)
             cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(path_x_raw,
                                                                           path_y_raw,
                                                                           ds=self.smooth_path_resolution)
@@ -233,7 +241,8 @@ if __name__ == '__main__':
                 cmd_msg = Twist()
                 cmd_msg.linear.x = np.clip(node.robot_twist.linear.x + accel_linear * dt, 0, TARGET_SPEED)
                 cmd_msg.angular.z = np.clip(delta_omega * dt, -MAX_ANGULAR_VELOCITY, MAX_ANGULAR_VELOCITY)
-                node.pub_cmd.publish(cmd_msg)
+                if node.force > 2:
+                    node.pub_cmd.publish(cmd_msg)
             else:
                 rospy.loginfo("goal reached!")
                 node.pub_cmd.publish(Twist())

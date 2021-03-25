@@ -204,7 +204,7 @@ void Scan2LocalmapNode::butterworth_filter_generate(double filter_radius, int fi
 //convert laserscan to localmap 
 void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
     // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
+    cout <<"first"<< ros::Time::now()-cloud_msg.header.stamp<<endl;
     // Convert  ROS PointCloud2 --> PCL PointCloudXYZ
     PointCloudXYZPtr cloud_raw(new PointCloudXYZ);
     PointCloudXYZPtr cloud_transformed(new PointCloudXYZ);
@@ -238,8 +238,8 @@ void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
     int map_limit = map_width * map_height;
 
     for(int i = 0; i < cloud_filtered->points.size(); i++) {
-        double laser_x = cloud_filtered->points[i].z;
-        double laser_y = -cloud_filtered->points[i].x+ 0.3;
+        double laser_x = cloud_filtered->points[i].z+0.41;
+        double laser_y = -cloud_filtered->points[i].x+ 0.07;
         //check if point is out of range
         if(fabs(laser_x) > map_height * resolution / 2)
             continue;
@@ -266,7 +266,7 @@ void Scan2LocalmapNode::scan_cb(const sensor_msgs::PointCloud2 cloud_msg) {
     // Publish footprint
     footprint_ptr_->header.stamp = now;
     pub_footprint_.publish(*footprint_ptr_);
-
+    cout <<"second"<< ros::Time::now()-cloud_msg.header.stamp<<endl;
     // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     // std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
 }

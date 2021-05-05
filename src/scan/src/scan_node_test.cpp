@@ -49,7 +49,7 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
         
     // }
     pcl::CropBox<pcl::PointXYZ> box_filter_; 
-    box_filter_.setMax(Eigen::Vector4f(4, 0.8, 8.0, 1.0));
+    box_filter_.setMax(Eigen::Vector4f(4, 0.5, 10.0, 1.0));
     box_filter_.setMin(Eigen::Vector4f(-4, -0.9, 0, 1.0));
     box_filter_.setKeepOrganized(false);
     box_filter_.setNegative(false);
@@ -70,7 +70,7 @@ void scan_callback(const sensor_msgs::PointCloud2 cloud_msg){
     PointCloudXYZPtr cloud_out(new PointCloudXYZ);
     outrem.setInputCloud(cloud_filtered);
     outrem.setRadiusSearch(0.2);
-    outrem.setMinNeighborsInRadius(10);
+    outrem.setMinNeighborsInRadius(15);
     outrem.filter(*(cloud_out));
     //cout <<"third"<< ros::Time::now()-output.header.stamp<<endl;
 

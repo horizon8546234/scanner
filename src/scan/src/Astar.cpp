@@ -31,7 +31,8 @@ Astar::Solver::Solver() {
         {0, 1}, {1, 0}, {0, -1}, {1, 1},
         {1, -1},// {-1, 1}, {-1, -1}  {-1, 0},
     };
-    set_heuristic(&Heuristic::manhattan);
+    // set_heuristic(&Heuristic::manhattan);
+    set_heuristic(&Heuristic::euclidean);
     set_diagonal_move(true);
 }
 
@@ -103,13 +104,13 @@ bool Astar::Solver::solve_ros(nav_msgs::OccupancyGrid::ConstPtr map_msg_ptr, nav
             if(find_node(close_set, tmp_grid) || is_collision(tmp_grid))
                 continue;                                           // Skip visited node & skip wall 
 
-            int total_cost = against_wall_cost(cur_node->grid) + cur_node->g_val + ((i<4)? 10 : 14);    // Balance cost between 4 & 8 directions
+            int total_cost =   cur_node->g_val + ((i<3)? 10 : 14);    // Balance cost between 4 & 8 directions
             
             Node* successor = find_node(open_set, tmp_grid);
             if(successor == nullptr){
                 successor = new Node(tmp_grid, cur_node);           // Expand a new node from current node
                 successor->g_val = total_cost;
-                successor->h_val = h_func_(successor->grid, goal);  // Calc the heuristic value
+                successor->h_val = h_func_(successor->grid, goal)+10*against_wall_cost(cur_node->grid);  // Calc the heuristic value
                 successor->decision = i;
                 open_set.push_back(successor);
             }else if(total_cost < successor->g_val){ 

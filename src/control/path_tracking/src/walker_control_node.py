@@ -17,11 +17,11 @@ from std_msgs.msg import Float32
 
 
 k = 0.5  # control gain
-Kp = 1.0  # speed proportional gain
+Kp = 1.33  # speed proportional gain
 dt = 0.1  # [s] time difference
 L = 0.6  # [m] Wheel base of vehicle
-MAX_ANGULAR_VELOCITY = 0.8
-TARGET_SPEED = 0.3 
+MAX_ANGULAR_VELOCITY = 1.0  
+TARGET_SPEED = 0.4
 
 class WalkerControlNode(object):
     def __init__(self):
@@ -39,7 +39,7 @@ class WalkerControlNode(object):
 
         # ROS parameters
         self.smooth_path_resolution = rospy.get_param("~map_resolution", 0.1) / 2.0     # much smoother than original path
-        self.cmd_freq               = rospy.get_param("cmd_freq", 5.0)
+        self.cmd_freq               = rospy.get_param("cmd_freq", 10.0)
 
         # ROS publisher & subscriber
         self.pub_cmd = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
@@ -81,11 +81,9 @@ class WalkerControlNode(object):
 
         else:
             path_x_raw = []
-            path_y_raw = []
-            path_x_raw.append(msg.poses[(len(msg.poses)-1)].pose.position.x)
-            path_y_raw.append(msg.poses[(len(msg.poses)-1)].pose.position.y)    
-            for i in range((len(msg.poses)-1)-1, -1, -1):
-                if(i%4==0)or(i==0):
+            path_y_raw = []   
+            for i in range(len(msg.poses)-1, -1, -1):
+                if(i%6==0)or(i==0)or(i==len(msg.poses)):
                     path_x_raw.append(msg.poses[i].pose.position.x)
                     path_y_raw.append(msg.poses[i].pose.position.y)
                     #print(i)
@@ -118,7 +116,7 @@ class WalkerControlNode(object):
         :param current: (float)
         :return: (float)
         """
-        return Kp * (target - current)
+        return Kp * (target - current)  
 
 
     def walker_control(self, robot_pose, robot_twist, target_path, last_target_idx):
@@ -175,8 +173,8 @@ class WalkerControlNode(object):
         """
 
         # Calc front axle position
-        fx = robot_pose.x + 2*L * np.cos(robot_pose.theta)
-        fy = robot_pose.y + 2*L * np.sin(robot_pose.theta)
+        fx = robot_pose.x + L * np.cos(robot_pose.theta)
+        fy = robot_pose.y + L * np.sin(robot_pose.theta)
 
         # Search nearest point index
         dx = []
@@ -204,7 +202,7 @@ class WalkerControlNode(object):
 if __name__ == '__main__':
     rospy.init_node('walker_control_node', anonymous=False)
     node = WalkerControlNode()
-
+    human_push = False
     rate = rospy.Rate(node.cmd_freq)
     while not rospy.is_shutdown():
         if node.flag_path_update == True:
@@ -240,9 +238,17 @@ if __name__ == '__main__':
                 dt = 1.0 / node.cmd_freq
                 cmd_msg = Twist()
                 cmd_msg.linear.x = np.clip(node.robot_twist.linear.x + accel_linear * dt, 0, TARGET_SPEED)
-                cmd_msg.angular.z = np.clip(delta_omega * dt, -MAX_ANGULAR_VELOCITY, MAX_ANGULAR_VELOCITY)
-                if node.force > 2:
+                cmd_msg.angular.z = np.clip(delta_omega * dt + 0.5 * delta_omega * dt*dt, -MAX_ANGULAR_VELOCITY, MAX_ANGULAR_VELOCITY)
+                # if human_push == False:
+                #     if node.force > 2:
+                #         human_push == True
+                # if human_push == True:
+                #     node.pub_cmd.publish(cmd_msg)
+                #     if node.force < 1:
+                #         human_push == False
+                if node.force > 0:
                     node.pub_cmd.publish(cmd_msg)
+                    
             else:
                 rospy.loginfo("goal reached!")
                 node.pub_cmd.publish(Twist())

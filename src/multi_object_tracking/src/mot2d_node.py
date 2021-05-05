@@ -135,6 +135,8 @@ class MultiObjectTrackingNode(object):
                 x, y, r, vx, vy, id, confidence, class_id
             '''
             d_now = np.sqrt(d[0]**2 + d[1]**2)
+            #print(d[0])
+            #print(d[1])
             # vx, vy = np.array([d[3], d[4]]) / (time.time() - self.last_time)
             vx, vy = np.array([d[3], d[4]]) / delta_t #- np.array([self.ego_velocity.x, self.ego_velocity.y])-np.array([d_now*math.sin(self.ego_theta.z),d_now*math.cos(self.ego_theta.z)])-
             speed = np.sqrt(vx**2 + vy**2)       # Note: reconstruct speed by multipling the sampling rate 
@@ -160,7 +162,7 @@ class MultiObjectTrackingNode(object):
             trk3d_msg.class_id = int(d[7])
             trk3d_msg.dangerous = dangerous
             trk3d_array.trks_list.append(trk3d_msg)
-            print("peolple speed:",speed)
+            #print("peolple speed:",speed)
             # Visualization
             marker = Marker()
             marker.header.frame_id = 'odom_filtered'

@@ -155,17 +155,17 @@ Scan2LocalmapNode::Scan2LocalmapNode(ros::NodeHandle nh, ros::NodeHandle pnh): n
 void Scan2LocalmapNode::asymmetric_gaussian_filter(vector<int8_t> &vec, double map_resolution, int map_width, int map_height, int target_idx, double target_yaw, double target_speed, int peak_value) {
 
 
-    if(peak_value>100)
-        peak_value=100;
+    if(peak_value>80)
+        peak_value=80;
     // Gaussian Filter kernel
     vector<vector<int8_t> > agf_kernel;
     // double kernel_range = 2.4 * 2;
-    double kernel_range = 5 * 2;
+    double kernel_range = 7.5 * 2;
     double max_kernel_range = kernel_range / 2 * 1.0000001;
     for(double y = -kernel_range / 2 ; y <= max_kernel_range; y += map_resolution){
         vector<int8_t> tmp_row;
         for(double x = -kernel_range / 2; x <= max_kernel_range; x += map_resolution){
-            double sigma_head = 0.75;
+            double sigma_head = 1;
             // double sigma_head = 0.5;
             double sigma_side = sigma_head * 2 / 5;
             double sigma_rear = sigma_head / 2;
@@ -445,17 +445,33 @@ void Scan2LocalmapNode::trk_cb(const walker_msgs::Trk3DArray::ConstPtr &msg_ptr)
             // mat.getEulerYPR(yaw, pitch, roll);
 
             double speed = hypot(msg_ptr->trks_list[i].vx, msg_ptr->trks_list[i].vy);
-            if(speed > 0.5)
-                speed = 0.5;
-            double dangerous = 200*msg_ptr->trks_list[i].dangerous;
+            // if(speed>2)
+            //     speed=2;
+            
+            double dangerous;
+            // if(speed>0.5)
+            //     dangerous=400*speed/(1+exp(0.3*sqrt(pt_base.getX()*pt_base.getX() + pt_base.getY()*pt_base.getY())));
+            // else
+            //     dangerous=400*0.5/(1+exp(0.3*sqrt(pt_base.getX()*pt_base.getX() + pt_base.getY()*pt_base.getY())));
+
+            if(j==0)
+                dangerous=400/(1+exp(0.3*sqrt(pt_base.getX()*pt_base.getX() + pt_base.getY()*pt_base.getY())));
+
+            
+            // cout <<"theta" << msg_ptr->trks_list[i].yaw << endl;    
             // Calculate object position in local map
+            //cout<<"dangerous"<<dangerous<<endl;
             
             int map_x = round((pt_base.getX()- map_origin_x) / resolution);
             int map_y = round((pt_base.getY()- map_origin_y) / resolution);
             int idx = map_y * map_width + map_x;
 
             if((0 < idx) && (idx < map_limit) && (speed > 0.15)){
-                asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous*(1-0.02*j));
+                double decrease = -cos(msg_ptr->trks_list[i].yaw);
+                //cout << "decrease" << decrease <<endl;
+                if(decrease < 0.5)
+                    decrease = 0.5;
+                asymmetric_gaussian_filter(localmap_ptr_->data, resolution, map_width, map_height, idx, msg_ptr->trks_list[i].yaw, speed,dangerous*decrease*exp(-0.05*0.02*j));
             }
             else if((0 < idx) && (idx < map_limit) && (speed <= 0.15)){
                 yaw = atan2(-pt_base.getY(),-pt_base.getX());

@@ -187,20 +187,31 @@ target_link_libraries(realsense_node
 #   ${catkin_LIBRARIES}
 # )
 
+add_executable(path_finding_node_simulation src/path_finding_node_simulation.cpp)
+target_link_libraries(path_finding_node_simulation
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+
 add_executable(path_finding_node_test src/path_finding_node_test.cpp)
 target_link_libraries(path_finding_node_test
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 
-add_executable(scan2localmap_node src/scan2localmap_node.cpp)
-target_link_libraries(scan2localmap_node 
+add_executable(scan2localmap_node_simulation src/scan2localmap_node_simulation.cpp)
+target_link_libraries(scan2localmap_node_simulation 
   ${PROJECT_NAME} 
   ${catkin_LIBRARIES}
 )
 
 add_executable(scan2localmap_node_test src/scan2localmap_node_test.cpp)
 target_link_libraries(scan2localmap_node_test 
+  ${catkin_LIBRARIES}
+)
+
+add_executable(simulation_tf_broadcaster src/simulation_tf_broadcaster.cpp)
+target_link_libraries(simulation_tf_broadcaster
   ${catkin_LIBRARIES}
 )
 

@@ -70,6 +70,7 @@ add_message_files(
 add_service_files(
   FILES
   Detection2DTrigger.srv
+  pathsmoothing.srv
 )
 
 ## Generate actions in the 'action' folder

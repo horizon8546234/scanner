@@ -1,0 +1,3 @@
+nav_msgs/Path path_raw
+---
+nav_msgs/Path path_smooth

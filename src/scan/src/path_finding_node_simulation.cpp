@@ -14,6 +14,8 @@
 #include <geometry_msgs/PolygonStamped.h>
 #include <std_msgs/Float32.h>
 
+
+#include <walker_msgs/pathsmoothing.h>
 // TF
 #include <tf/transform_listener.h>
 #include "tf/transform_datatypes.h"
@@ -24,10 +26,15 @@
 using namespace std;
 double change_x=0;
 double change_y=0,a=0;
+double time1=0;
 
-double final_goal_x=2.5;
+double final_goal_x=1;
 double final_goal_y=0;
 bool goal =false;
+double walker_velocity_theta = 0;
+
+double walker_angular_theta = 0; 
+
 
 template<class ForwardIterator>
 inline size_t argmin(ForwardIterator first, ForwardIterator last) {
@@ -64,6 +71,7 @@ public:
     ros::Publisher past_path;
     ros::Publisher pub_marker_array_;
     ros::Publisher pub_walker_position;
+    ros::ServiceClient path_smooth_;
     ros::Timer timer_;
     nav_msgs::OccupancyGrid::ConstPtr localmap_ptr_;
     nav_msgs::Path::Ptr walkable_path_ptr_;
@@ -99,7 +107,7 @@ AstarPathfindingNode::AstarPathfindingNode(ros::NodeHandle nh, ros::NodeHandle p
     past_path_ptr_ = nav_msgs::Path::Ptr(new nav_msgs::Path());
     // ROS parameters
     ros::param::param<double>("~solver_timeout_ms", solver_timeout_ms_, 100.0);
-    ros::param::param<double>("~subgoal_timer_interval", subgoal_timer_interval_, 0.1);
+    ros::param::param<double>("~subgoal_timer_interval", subgoal_timer_interval_, 0.05);
     //ros::param::param<double>("~path_start_offsetx", path_start_offsetx_, 0.44);    // trick: start path from robot front according to the robot footprint
     //ros::param::param<double>("~path_start_offsety", path_start_offsety_, 0.0);
     // Fixed parameters
@@ -113,9 +121,9 @@ AstarPathfindingNode::AstarPathfindingNode(ros::NodeHandle nh, ros::NodeHandle p
     past_path=nh_.advertise<nav_msgs::Path>("past_path", 1);
     pub_marker_array_ = nh_.advertise<visualization_msgs::MarkerArray>("walker", 1);
     pub_walker_position = nh_.advertise<geometry_msgs::PointStamped>("walker_position", 1);
+    string path_srv_name = "smooth_path_service";
 
-
-
+    path_smooth_ = nh_.serviceClient<walker_msgs::pathsmoothing>(path_srv_name);
 
     // Timer init
     flag_planning_busy_ = false;
@@ -158,25 +166,6 @@ bool AstarPathfindingNode::is_footprint_safe(const nav_msgs::OccupancyGrid::Cons
     return true;
 }
 
-// bool AstarPathfindingNode::is_robot_following_path(nav_msgs::Path::Ptr path_ptr, double tracking_progress_percentage, tf::StampedTransform tf_base2odom) {
-//     if(!path_ptr || path_ptr->poses.size() < 1)
-//         return false;
-
-//     tf::Vector3 robot_position = tf_base2odom.getOrigin();
-//     int target_idx = path_ptr->poses.size() * (0.99 - tracking_progress_percentage);
-//     // ROS_ERROR("path lenght: %d, target_idx: %d", path_ptr->poses.size(), target_idx);
-//     geometry_msgs::PoseStamped tracking_point = path_ptr->poses[target_idx];
-//     // ROS_ERROR("tracking idx=%d\ttracking point=%.2f, %.2f\trobot position=%.2f,%.2f", \
-//     //             target_idx, \
-//     //             tracking_point.pose.position.x, \
-//     //             tracking_point.pose.position.y, \
-//     //             robot_position.getX(), \
-//     //             robot_position.getY());
-//     if(std::hypot(tracking_point.pose.position.x - robot_position.getX(), tracking_point.pose.position.y - robot_position.getY()) > 2.0)
-//         return false;
-//     else
-//         return true;
-// }
 
 
 bool AstarPathfindingNode::is_path_safe(const nav_msgs::OccupancyGrid::ConstPtr &map_msg_ptr, nav_msgs::Path::Ptr path_ptr, tf::StampedTransform tf_base2odom) {
@@ -237,7 +226,7 @@ geometry_msgs::Point AstarPathfindingNode::generate_sub_goal(const nav_msgs::Occ
     double distance_resolution = map_resolution * 2;//0.4
     int max_distance_idx = std::round(prefer_subgoal_distance / distance_resolution);//10
 
-    for(int m=0;m<5;m++)
+    for(int m=3;m<5;m++)
     {
         for(int i=2; i <= max_distance_idx; i++)
         {
@@ -483,6 +472,16 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
                     // mat_transformed.getRotation(q_transformed);
                     // tf::quaternionTFToMsg(q_transformed, it->pose.orientation);
                 }
+                /*
+                walker_msgs::pathsmoothing srv;
+                srv.request.path_raw = *walkable_path_ptr_;
+
+                if(!path_smooth_.call(srv)){
+                    ROS_ERROR("Failed to call service");
+                    return;
+                }
+                *walkable_path_ptr_=srv.response.path_smooth;
+                */
                 walkable_path_ptr_->header.stamp = ros::Time();
                 pub_walkable_path_.publish(walkable_path_ptr_);
                 change_x=walkable_path_ptr_->poses[walkable_path_ptr_->poses.size()-2].pose.position.x-path_start_offsetx_;
@@ -496,10 +495,24 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
                 pub_walkable_path_.publish(walkable_path_ptr_);
             }
             
-            if(sqrt(pow((path_start_offsetx_-final_goal_x),2) + pow((path_start_offsety_-final_goal_y),2))>0.05)
+            if(sqrt(pow((path_start_offsetx_-final_goal_x),2) + pow((path_start_offsety_-final_goal_y),2))>0.1)
             {
-                path_start_offsetx_+=change_x*a;
-                path_start_offsety_+=change_y*a;
+                if((-walker_velocity_theta+atan2(change_y,change_x))>0.6*0.1)
+                    walker_velocity_theta+=0.6*0.1;
+                else if((walker_velocity_theta-atan2(change_y,change_x))>0.6*0.1)
+                    walker_velocity_theta-=0.6*0.1;
+                else
+                    walker_velocity_theta = atan2(change_y,change_x);
+
+                
+                double time2=ros::Time::now().toSec();
+                // cout << "heading theta: " << walker_velocity_theta*180/3.14+90 << endl;
+                double pass_time=time2 - time1;
+                
+                // cout << "pass time: " << pass_time<<endl;
+                path_start_offsetx_+=0.2*0.1*cos(walker_velocity_theta);
+                path_start_offsety_+=0.2*0.1*sin(walker_velocity_theta);
+                time1 =time2;
             }
             
             walker.header.frame_id = path_frame_id_;

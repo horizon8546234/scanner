@@ -37,13 +37,12 @@ using namespace std;
 
 double true_time =0;
 
-
 int localmap_range=10;
 double walker_position_x=0;
 double walker_position_y=0;
 double map_resolution=0.1;
 vector<vector<int8_t> > inflation_kernel_;
-double people1_x = 1;
+double people1_x = 0;
 double people1_y = -0.6;
 double people1_vx = -1;
 double people1_vy = 0;
@@ -64,6 +63,7 @@ double walker_y = -0.4;
 double walker_vx = 0;
 double walker_vy = 0;
 double walker_theta=0;
+double time5=0;
 
 ofstream ofs;
 visualization_msgs::MarkerArray mrk_array;
@@ -76,13 +76,36 @@ void butterworth_filter_generate(double filter_radius, int filter_order, double 
 void butterworth_filter(vector<int8_t> &vec, int map_width, int map_height, int target_idx, int peak_value);
 void asymmetric_gaussian_filter(vector<int8_t> &vec, double map_resolution, int map_width, int map_height,int map_x, int target_idx, double target_yaw, double target_speed, int peak_value);
 
+bool flag_first_time = true;
 void callback(const geometry_msgs::PointStamped::ConstPtr& msg)
 {
+    if(flag_first_time){
+        flag_first_time = false;
+        time5 = ros::Time::now().toSec();
+        return;
+    }
+
+    double time_walker = ros::Time::now().toSec()-time5;
+    true_time+=time_walker;
+    //cout << ros::Time::now().toSec()-time5 <<endl;
+    //cout <<true_time <<endl;
+    
     walker_vx=msg->point.x-walker_x;
     walker_vy=msg->point.y-walker_y;
     walker_x=msg->point.x;
     walker_y=msg->point.y;
-    walker_theta=atan2(walker_vx,walker_vy)*180/3.14;
+    walker_theta=atan2(walker_vy,walker_vx)*180/3.14+90;
+    //cout<<walker_theta<<endl;
+    ofs << true_time/2<<" ";
+    
+    ofs << people1_comfort<<" ";
+    ofs << d1 <<" ";
+    
+    ofs << people2_comfort<<" ";
+    ofs << d2 <<" ";
+    ofs << walker_x << " ";
+    ofs << walker_y << "\n";
+    time5=ros::Time::now().toSec();
 }
 
 
@@ -99,11 +122,10 @@ int main(int argc, char **argv)
     footprint_initialize(footprint);
     butterworth_filter_generate(0.2, 6, map_resolution, 100);
     ros::Subscriber sub = nh.subscribe("walker_position", 1, callback);
-
-
-    
-    
-
+/*
+    ros::AsyncSpinner spinner(1);
+    spinner.start();
+*/
     ofs.open("/home/hou/scanner/output.txt");
     while (ros::ok())
     {
@@ -163,7 +185,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
     for(int j = 0; j < 20; j++)
     {
         
-        double px1_now = people1_x + 0.2 * j * people1_vx;
+        double px1_now = people1_x + 0.2 * j * -1;
         double py1_now = people1_y + 0.2 * j * people1_vy;
         int map_x = round((px1_now- map_origin_x) / resolution);
         int map_y = round((py1_now- map_origin_y) / resolution);
@@ -197,40 +219,47 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
             }
             //cout << map_x <<endl;
             d1=sqrt(pow((px1_now-walker_x),2) + pow((py1_now-walker_y),2));
-            
+            d1-=0.6;
         }
 
-        double theta_1=atan2((people1_x-walker_x),(walker_y-people1_y))*180/3.14;
-        //cout << "theta" << theta_1<<endl;
+        double theta_1=atan2((people1_y-walker_y),(people1_x-walker_x))+1.57;
+        //cout << "theta" << theta_1*180/3.14<<endl;
         
         
-        double theta = acos((people1_x-walker_x)/d1);
-        //double decrease = cos(walker_theta-theta_1);
-        double decrease = cos(theta);
-        if(decrease<0.5)
-            decrease=0.5;
+
+
         double decrease1 = cos(walker_theta-theta_1);
-        if(decrease1<0.5)
-            decrease1=0.5;
+        //cout << "theta" << walker_theta-theta_1<<endl;
+        //cout << "theta" << decrease1<<endl;
 
-        people1w_comfort = decrease1*2/(1+exp(0.5*d1));
 
-        people1_comfort= decrease*2/(1+exp(0.5*d1));
 
+        
+
+        double theta_relative_velocity1= atan2(walker_vy,walker_vx-people1_vx)+1.57;
+        
+        double decrease11 = cos(theta_relative_velocity1-theta_1);
+        //cout << "relative_theta" << (theta_relative_velocity1)*180/3.14 <<endl; 
+        if(decrease11<0)
+            decrease11=0.01;
+        else if(decrease11<0.5)
+            decrease11=0.5;
+
+        people1_comfort=2/(1+exp(0.8*d1/decrease11));
         
         if(people1_x>walker_x)
-            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people1_vy,people1_vx) , 1, 100*decrease*exp(-0.02*j*d1));
+            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people1_vy,people1_vx) , 1, 200/(1+exp(0.03*j*d1/decrease11)));
         else
-            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people2_vy,people2_vx) , 1, 0);
-        
-        
+            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people1_vy,people1_vx) , 1, 0);
     }
     
+    //cout<<"people1_comfort"<<people1_comfort  <<endl;
     double time2=ros::Time::now().toSec();
     //cout <<"time:"<<time2-time1<<endl;
     if(people1_x>-5)
     {
-        people1_x-=1*(time2-time1);
+        people1_vx=-1*(time2-time1);
+        people1_x+=people1_vx;
         pedestrian.header.frame_id = "base_link";
         pedestrian.ns = "pedesrian";
         pedestrian.type = visualization_msgs::Marker::CYLINDER;
@@ -249,16 +278,13 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         mrk_array.markers.push_back(pedestrian);
     }
     
-    ofs << true_time<<" ";
-    ofs << people1w_comfort<<" ";
-    ofs << people1_comfort<<" ";
-    ofs << d1 <<" ";
+
     //cout<<"people1_comfort"<<people1_comfort<<endl;
     //people2   
 
     for(int j = 0; j < 20; j++)
     {
-        double px2_now = people2_x + 0.2 * j * people2_vx;
+        double px2_now = people2_x + 0.2 * j *-1;
         double py2_now = people2_y + 0.2 * j * people2_vy;
         int map_x = round((px2_now- map_origin_x) / resolution);
         int map_y = round((py2_now- map_origin_y) / resolution);
@@ -276,6 +302,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
             
             //cout << map_x <<endl;
             d2=sqrt(pow((px2_now-walker_x),2) + pow((py2_now-walker_y),2));
+            d2-=0.6;
             if(px2_now>-4.9)
             {
                 for(int m=-1;m<=1;m++)
@@ -298,26 +325,32 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         double theta = acos((people2_x-walker_x)/d2);
         double decrease = cos(theta);
 
-        double theta_2=atan2((people2_x-walker_x),(walker_y-people2_y))*180/3.14;
+        double theta_2=atan2((people2_y-walker_y),(people2_x-walker_x));
+        
+        //cout << "theta" << theta_2*180/3.14<<endl;
+
+        double theta_relative_velocity2= atan2(walker_vy,walker_vx-people2_vx);
+        double decrease22 = cos(theta_relative_velocity2-theta_2);
+
+        
+
         
 
 
-        
-        
-        if(decrease<0.5)
-            decrease=0.5;
-        double decrease2 = cos(walker_theta-theta_2);
-        if(decrease2<0.5)
-            decrease2=0.5;
+        if(decrease22<0)
+            decrease22=0.01;
+        else if(decrease22<0.5)
+            decrease22=0.5;
 
-        people2w_comfort = decrease2*2/(1+exp(0.5*d2));
-
-        people2_comfort= decrease*2/(1+exp(0.5*d2));
         
-        if(decrease<0.5)
-            decrease=0.5;
+        
+        people2_comfort=2/(1+exp(0.8*d2/decrease22));
+        //cout << "relative_theta" << (theta_relative_velocity2)*180/3.14+90 <<endl; 
+
+
+
         if(people2_x>walker_x)
-            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people2_vy,people2_vx) , 1, 100*decrease*exp(-0.02*j*d2));
+            asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people2_vy,people2_vx) , 1, 200/(1+exp(0.03*j*d2/decrease22)));
         else
             asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people2_vy,people2_vx) , 1, 0);
         
@@ -325,15 +358,14 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
     }
     
     
-    ofs << people2w_comfort<<" ";
-    ofs << people2_comfort<<" ";
-    ofs << d2 <<"\n";
-    cout<<"people2_comfort"<<people2w_comfort<<endl;
+
+    cout<<"people2_comfort"<<people2_comfort<<endl;
     
     double time3=ros::Time::now().toSec();
     if(people2_x>-5)
     {
-        people2_x-=1*(time3-time2);
+        people2_vx=-1*(time3-time2);
+        people2_x+=people2_vx;
 
 
         pedestrian.header.frame_id = "base_link";
@@ -354,7 +386,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         mrk_array.markers.push_back(pedestrian);
     }
 
-    true_time+=time3-time2;
+    //true_time+=time3-time2;
 
 }
 void map_initialize(nav_msgs::OccupancyGrid &localmap_ptr_)
@@ -450,8 +482,9 @@ void butterworth_filter(vector<int8_t> &vec, int map_width, int map_height, int 
 void asymmetric_gaussian_filter(vector<int8_t> &vec, double map_resolution, int map_width, int map_height,int map_x, int target_idx, double target_yaw, double target_speed, int peak_value) {
 
 
-    if(peak_value>80)
-        peak_value=80;
+    if(peak_value>100)
+        peak_value=100;
+        
     // Gaussian Filter kernel
     vector<vector<int8_t> > agf_kernel;
     // double kernel_range = 2.4 * 2;

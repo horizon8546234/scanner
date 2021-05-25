@@ -110,7 +110,7 @@ bool Astar::Solver::solve_ros(nav_msgs::OccupancyGrid::ConstPtr map_msg_ptr, nav
             if(successor == nullptr){
                 successor = new Node(tmp_grid, cur_node);           // Expand a new node from current node
                 successor->g_val = total_cost;
-                successor->h_val = h_func_(successor->grid, goal)+10*against_wall_cost(cur_node->grid);  // Calc the heuristic value
+                successor->h_val = h_func_(successor->grid, goal)+5*against_wall_cost(cur_node->grid);  // Calc the heuristic value
                 successor->decision = i;
                 open_set.push_back(successor);
             }else if(total_cost < successor->g_val){ 

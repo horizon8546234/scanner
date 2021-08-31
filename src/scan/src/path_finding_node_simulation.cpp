@@ -34,6 +34,7 @@ bool goal =false;
 double walker_velocity_theta = 0;
 
 double walker_angular_theta = 0; 
+tf2::Quaternion q;
 
 
 template<class ForwardIterator>
@@ -86,6 +87,7 @@ public:
     visualization_msgs::Marker mkr_subgoal_candidate_;
     visualization_msgs::Marker mrk_subgoal_;
     visualization_msgs::Marker walker;
+    visualization_msgs::Marker arrow;
     visualization_msgs::Marker target_point;
     double subgoal_timer_interval_;
     double solver_timeout_ms_; 
@@ -97,7 +99,7 @@ public:
     double time=0;
     // A* clever trick
     double path_start_offsetx_=-4;
-    double path_start_offsety_=-0.4;
+    double path_start_offsety_=0;
 };
 
 
@@ -435,7 +437,7 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
             Astar::Solver solver;
             
             
-            if(sqrt(pow((subgoal_pt.x-final_goal_x),2) + pow((subgoal_pt.y-final_goal_y),2))<0.3)
+            if(sqrt(pow((subgoal_pt.x-final_goal_x),2) + pow((subgoal_pt.y-final_goal_y),2))<0.5)
                 goal = true;
             
 
@@ -515,6 +517,7 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
                 time1 =time2;
             }
             
+            q.setRPY(0,0,walker_velocity_theta);
             walker.header.frame_id = path_frame_id_;
             walker.ns = "walker";
             walker.type = visualization_msgs::Marker::CYLINDER;
@@ -529,13 +532,22 @@ void AstarPathfindingNode::timer_cb(const ros::TimerEvent&){
             walker.id = 0;
             walker.pose.position.x = path_start_offsetx_;
             walker.pose.position.y = path_start_offsety_;
-            walker.pose.position.z = 0.0;
-            walker.pose.orientation.x = 0.0;
-            walker.pose.orientation.y = 0.0;
-            walker.pose.orientation.z = 0.0;
-            walker.pose.orientation.w = 1.0;
+            walker.pose.position.z = 0.15;
+            walker.pose.orientation.x = q[0];
+            walker.pose.orientation.y = q[1];
+            walker.pose.orientation.z = q[2];
+            walker.pose.orientation.w = q[3];
             walker.header.stamp = ros::Time();
             mrk_array.markers.push_back(walker);
+            arrow = walker;
+            arrow.type = visualization_msgs::Marker::ARROW;
+            arrow.ns = "direction" ;
+            arrow.scale.x = 0.5;
+            arrow.scale.y = 0.2;
+            arrow.scale.z = 0.2;
+            mrk_array.markers.push_back(arrow);
+
+
 
 
             target_point.header.frame_id = path_frame_id_;

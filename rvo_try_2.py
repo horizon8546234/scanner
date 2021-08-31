@@ -6,19 +6,17 @@ import time
 from sympy import *
 from datetime import datetime
 
-with open('system3_1.txt', 'r') as f:
+with open('system3_2.txt', 'r') as f:
     lines = f.readlines()
     comfort_x = [float(line.split()[5]) for line in lines]
     comfort_y = [float(line.split()[6]) for line in lines]
 
-with open('system2_1.txt', 'r') as f1:
+with open('system2_2.txt', 'r') as f1:
     lines1 = f1.readlines()
     comfort_x1 = [float(line.split()[5]) for line in lines1]
     comfort_y1 = [float(line.split()[6]) for line in lines1]
 
-    
-
-fo = open("foo.txt", "rw+")    
+fo = open("foo_2.txt", "rw+")    
 
 
 
@@ -115,15 +113,15 @@ fig.set_size_inches(8,8)
 list = []
 
 human_r=0.5
-list.append(Agents([ 3.9 ,8.5], human_r,[0,-1]))
-list.append(Agents([ 5.1 ,5], human_r,[0,-1]))
+list.append(Agents([ 5.6 ,8.5], human_r,[0,-1]))
+list.append(Agents([ 1 ,8], human_r,[0.707,-0.707]))
 # list.append(Agents([ 4 ,8], human_r,[0,-1]))
 # list.append(Agents([ 5 ,7], human_r,[0,-1]))
 
 
-for i in range (17):
-    list.append(Agents([ 3 ,0.3+0.6*i], 0.3,[0,0]))
-    list.append(Agents([ 6 ,0.3+0.6*i], 0.3,[0,0]))
+# for i in range (17):
+#     list.append(Agents([ 3 ,0.3+0.6*i], 0.3,[0,0]))
+#     list.append(Agents([ 6 ,0.3+0.6*i], 0.3,[0,0]))
 
 # for i in range (8):
 #     list.append(Agents([ 6+0.6*i ,5.1], 0.3,[0,0]))
@@ -131,8 +129,8 @@ for i in range (17):
 #list.append(Agents([ 5 ,2], 0.3,[0,-1]))
 
 walker = Walker()
-walker.self_cb([4.5 ,1], 0.3)
-walker.set_goal([4.5,6])
+walker.self_cb([5,1], 0.3)
+walker.set_goal([5,6])
 
 
 while walker.position[1]<10:
@@ -166,6 +164,7 @@ while walker.position[1]<10:
     if(collision==false):
         prefer_angle1=walker.prefer_angle()
         print prefer_angle1*180/3.14
+        print"safe"
         walker.next_speed(prefer_angle1)
         if walker.position[1]<5.9:
             walker.position[0]+=walker.vx*settle_time
@@ -203,7 +202,7 @@ while walker.position[1]<10:
                         min_collision_time=list[obj].collision_time_walker
                         min_obj=obj
             # print 'min_collision_time',min_obj,min_collision_time    
-            if(min_collision_time-last_min_collision_time>=settle_time*1.2):
+            if(min_collision_time-last_min_collision_time>=settle_time*5):
                 collision =false
 
             theta_plus_origin=theta_plus
@@ -244,7 +243,7 @@ while walker.position[1]<10:
                         min_obj=obj
 
             # print 'min_collision_time',min_obj,min_collision_time    
-            if(min_collision_time-last_min_collision_time>=1.2*settle_time):
+            if(min_collision_time-last_min_collision_time>=settle_time*5):
                 collision =false    
 
             if(theta_minus>=1.57):
@@ -297,22 +296,20 @@ while walker.position[1]<10:
     print(walker.position)
     ax.clear()
     ax.grid('on')
-    
-    ax.add_patch(plt.Circle((walker.goal[0]-4.5, walker.goal[1]-1), 0.1, color='red', alpha=0.5))
     if walker.position[1]<5.9:
-        ax.add_patch(plt.Circle((walker.position[0]-4.5, walker.position[1]-1), walker.r, color='green', alpha=0.5))
-    # plt.quiver(walker.position[0]-4.5, walker.position[1]-1, np.cos(walker.velocity_theta), np.sin(walker.velocity_theta), pivot='middle')
+        ax.add_patch(plt.Circle((walker.position[0]-5, walker.position[1]-1), walker.r, color='green', alpha=0.5))
+    ax.add_patch(plt.Circle((walker.goal[0]-5, walker.goal[1]-1), 0.1, color='red', alpha=0.5))
+    # plt.quiver(walker.position[0]-5, walker.position[1]-1, np.cos(walker.velocity_theta), np.sin(walker.velocity_theta), pivot='middle')
     number=0
-
     for obj in list:
-        ax.add_patch(plt.Circle((obj.position[0]-4.5,obj.position[1]-1), obj.r, color='black', alpha=0.5))
-        # plt.text(obj.position[0]-0.1-4.5, obj.position[1]-0.1-1, number, fontsize=14)
+        ax.add_patch(plt.Circle((obj.position[0]-5,obj.position[1]-1), obj.r, color='black', alpha=0.5))
+        plt.text(obj.position[0]-0.1-5, obj.position[1]-0.1-1, number, fontsize=14)
 
         number+=1
 
     
     for i in range(len(past_route_x)):
-        circ1=plt.Circle((past_route_x[i]-4.5,past_route_y[i]-1), 0.02, color='blue', alpha=0.5)
+        circ1=plt.Circle((past_route_x[i]-5,past_route_y[i]-1), 0.02, color='blue', alpha=0.5)
         ax.add_patch(circ1)
         
         
@@ -322,12 +319,12 @@ while walker.position[1]<10:
 
     for i in range(len(comfort_x1)):
         circ2=plt.Circle((-comfort_y1[i],comfort_x1[i]+4), 0.02, color='black', alpha=0.5)
-        ax.add_patch(circ2)    
+        ax.add_patch(circ2) 
         
 
+    
+
     ax.legend([circ1,circ2, circ3], ['System 1','System 2','Our System'],loc='lower right')    
-
-
 
         
 

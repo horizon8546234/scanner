@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-with open('system1_1.txt', 'r') as f:
+with open('system1_2.txt', 'r') as f:
     lines = f.readlines()
     t = [float(line.split()[0]) for line in lines]
     people1_vo_comfort = [float(line.split()[1]) for line in lines]
@@ -8,13 +8,13 @@ with open('system1_1.txt', 'r') as f:
     d2 = [float(line.split()[4]) for line in lines]
 
 
-with open('system2_1.txt', 'r') as f_2:
+with open('system2_2.txt', 'r') as f_2:
     lines_2 = f_2.readlines()
     t_2 = [float(line_2.split()[0]) for line_2 in lines_2]
     people1_comfort = [float(line_2.split()[1]) for line_2 in lines_2]
     people2_comfort = [float(line_2.split()[3]) for line_2 in lines_2]
 
-with open('system3_1.txt', 'r') as f_3:
+with open('system3_2.txt', 'r') as f_3:
     lines_3 = f_3.readlines()
     t_3 = [float(line_3.split()[0]) for line_3 in lines_3]
     people1_proposed_comfort = [float(line_3.split()[1]) for line_3 in lines_3]
@@ -112,7 +112,7 @@ plt.plot(t ,people1_vo_comfort,label="System1")
 plt.plot(t_2 ,people1_comfort,label="System2")
 plt.plot(t_3 ,people1_proposed_comfort,label="Our System")
 plt.legend(loc='best')
-plt.xlim([0, 3])
+plt.xlim([0, 6])
 
 
 
@@ -126,7 +126,7 @@ plt.ylabel("comfort")
 plt.plot(t ,people2_vo_comfort,label="System1")
 plt.plot(t_2 ,people2_comfort,label="System2")
 plt.plot(t_3 ,people2_proposed_comfort,label="Our System")
-plt.xlim([0, 5.5])
+plt.xlim([0, 5.8])
 
 
 plt.legend(loc='best')

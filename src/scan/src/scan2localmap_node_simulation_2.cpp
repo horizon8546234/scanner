@@ -6,6 +6,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <Eigen/Geometry>
+#include <Eigen/Dense>
 
 #include "ros/ros.h"
 #include <geometry_msgs/PolygonStamped.h>
@@ -34,26 +36,25 @@
 #include <pcl/filters/passthrough.h>
 
 using namespace std;
+using namespace Eigen;
 
 double true_time =0;
-int tset=8;
 
 int localmap_range=10;
 double walker_position_x=0;
 double walker_position_y=0;
 double map_resolution=0.1;
 vector<vector<int8_t> > inflation_kernel_;
-double people1_x = 0;
-double people1_y = -0.6;
-double people1_vx = -1;
-double people1_vy = 0;
+double people1_x = 3;
+double people1_y = 4;
+double people1_vx = -0.707;
+double people1_vy = -0.707;
 double people1_comfort=0;
 double d1=0;
 double people1w_comfort=0;
-double decrease11=0;
 
 double people2_x = 3.5;
-double people2_y = 0.6;
+double people2_y = -0.6;
 double people2_vx = -1;
 double people2_vy = 0;
 double people2_comfort=0;
@@ -61,11 +62,12 @@ double d2=0;
 double people2w_comfort=0;
 
 double walker_x = -4;
-double walker_y = -0.4;
+double walker_y = 0;
 double walker_vx = 0;
 double walker_vy = 0;
 double walker_theta=0;
 double time5=0;
+int tset = 10;
 
 ofstream ofs;
 visualization_msgs::MarkerArray mrk_array;
@@ -100,7 +102,7 @@ void callback(const geometry_msgs::PointStamped::ConstPtr& msg)
     walker_x=msg->point.x;
     walker_y=msg->point.y;
     walker_theta=atan2(walker_vy,walker_vx)*180/3.14+90;
-    //cout<<walker_theta<<endl;
+    //cout<<"walker_speed"<<sqrt(pow((walker_vx),2) + pow((walker_vy),2))<<endl;
     ofs << true_time/2<<" ";
     
     ofs << people1_comfort<<" ";
@@ -131,7 +133,7 @@ int main(int argc, char **argv)
     ros::AsyncSpinner spinner(1);
     spinner.start();
 */
-    ofs.open("/home/hou/scanner/output.txt");
+    ofs.open("/home/hou/scanner/output_2.txt");
     while (ros::ok())
     {
         ros::spinOnce();
@@ -162,27 +164,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
     int map_limit = map_width * map_height;
     int count=0;
 
-    //wall
-    for(int i = 0; i < 100; i++) {
-        
 
-        // Add wall(non-walkable) space
-        int map_x = i;
-        int map_y = 35;
-        int idx = map_y * map_width + map_x;
-        localmap_ptr_.data[idx] = 100;
-        butterworth_filter(localmap_ptr_.data, map_width, map_height, idx, 100);
-    }
-    for(int i = 0; i < 100; i++) {
-        
-
-        // Add wall(non-walkable) space
-        int map_x = i;
-        int map_y = 65;
-        int idx = map_y * map_width + map_x;
-        localmap_ptr_.data[idx] = 100;
-        butterworth_filter(localmap_ptr_.data, map_width, map_height, idx, 100);
-    }
     
 
     //people1   
@@ -190,8 +172,8 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
     for(int j = 0; j < tset; j++)
     {
         
-        double px1_now = people1_x + 0.2 * j * -1;
-        double py1_now = people1_y + 0.2 * j * people1_vy;
+        double px1_now = people1_x + 0.2 * j * -0.707;
+        double py1_now = people1_y + 0.2 * j * -0.707;
         int map_x = round((px1_now- map_origin_x) / resolution);
         int map_y = round((py1_now- map_origin_y) / resolution);
         
@@ -241,20 +223,16 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
 
         
 
-        double theta_relative_velocity1= atan2(walker_vy,walker_vx-people1_vx)+1.57;
-        // cout << "walker_vx" << walker_vx<<endl;
-        // cout << "walker_vy" << walker_vy<<endl;
-        // cout << "fuck" << theta_relative_velocity1<<endl;
-        decrease11 = cos(theta_relative_velocity1-theta_1);
+        double theta_relative_velocity1= atan2(walker_vy-people1_vy,walker_vx-people1_vx)+1.57;
+        
+        double decrease11 = cos(theta_relative_velocity1-theta_1);
         //cout << "relative_theta" << (theta_relative_velocity1)*180/3.14 <<endl; 
         if(decrease11<0)
-            decrease11=0.1;
+            decrease11=0.01;
         else if(decrease11<0.5)
             decrease11=0.5;
 
         people1_comfort=2/(1+exp(0.8*d1/decrease11));
-        if(people1_comfort>1)
-            people1_comfort=1;
         
         if(people1_x>walker_x)
             asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people1_vy,people1_vx) , 1, 200/(1+exp(0.03*j*d1/decrease11)));
@@ -262,50 +240,15 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
             asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people1_vy,people1_vx) , 1, 0);
     }
     
-    cout<<"people1_comfort"<<people1_comfort  <<endl;
-    double time2=ros::Time::now().toSec();
-    cout <<"time1:"<<time2-time1<<endl;
-    if(people1_x>-5)
-    {
-        people1_vx=-1*(time2-time1);
-        people1_x+=people1_vx;
-        double yaw_1=atan2(people1_vy,people1_vx);
-        q.setRPY(0,0,yaw_1);
-        q=q.normalize();
-        pedestrian.header.frame_id = "base_link";
-        pedestrian.ns = "pedesrian";
-        pedestrian.type = visualization_msgs::Marker::CYLINDER;
-        pedestrian.action = visualization_msgs::Marker::ADD;
-        pedestrian.pose.orientation.w = 1.0;
-        pedestrian.scale.x = 0.6;
-        pedestrian.scale.y = 0.6;
-        pedestrian.scale.z = 0.6;
-        pedestrian.color.a = 1.0;
-        pedestrian.color.b = 1.0;
-        pedestrian.lifetime = ros::Duration(0.5);
-        pedestrian.id = 0;
-        pedestrian.pose.position.x = people1_x;
-        pedestrian.pose.position.y = people1_y;
-        pedestrian.pose.position.z = 0.3;
-        pedestrian.pose.orientation.x=q[0];
-        pedestrian.pose.orientation.y=q[1];
-        pedestrian.pose.orientation.z=q[2];
-        pedestrian.pose.orientation.w=q[3];
-        pedestrian.header.stamp = ros::Time();
-        mrk_array.markers.push_back(pedestrian);
-        arrow = pedestrian;
-        arrow.type = visualization_msgs::Marker::ARROW;
-        arrow.ns = "direction" ;
-        arrow.scale.x = 0.8;
-        arrow.scale.y = 0.2;
-        arrow.scale.z = 0.2;
-        mrk_array.markers.push_back(arrow);
-    }
+    //cout<<"people1_comfort"<<people1_comfort  <<endl;
+    
+    
+    
     
 
     //cout<<"people1_comfort"<<people1_comfort<<endl;
     //people2   
-
+    
     for(int j = 0; j < tset; j++)
     {
         double px2_now = people2_x + 0.2 * j *-1;
@@ -353,7 +296,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         
         //cout << "theta" << theta_2*180/3.14<<endl;
 
-        double theta_relative_velocity2= atan2(walker_vy,walker_vx-people2_vx);
+        double theta_relative_velocity2= atan2(walker_vy-people2_vy,walker_vx-people2_vx);
         double decrease22 = cos(theta_relative_velocity2-theta_2);
 
         
@@ -371,8 +314,7 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         people2_comfort=2/(1+exp(0.8*d2/decrease22));
         //cout << "relative_theta" << (theta_relative_velocity2)*180/3.14+90 <<endl; 
 
-        if(people2_comfort>1)
-            people2_comfort=1;
+
 
         if(people2_x>walker_x)
             asymmetric_gaussian_filter(localmap_ptr_.data, resolution, map_width, map_height,map_x, idx, atan2(people2_vy,people2_vx) , 1, 200/(1+exp(0.03*j*d2/decrease22)));
@@ -387,16 +329,54 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
     cout<<"people2_comfort"<<people2_comfort<<endl;
     
     double time3=ros::Time::now().toSec();
+    if(people1_x>-5)
+    {
+        people1_vx=-0.707*(time3-time1);
+        people1_x+=people1_vx*0.667*0.7;
+        people1_vy=-0.707*(time3-time1);
+        people1_y+=people1_vy*0.667*0.7;
+        double yaw_1=atan2(people1_vy,people1_vx);
+        q.setRPY(0,0,yaw_1);
+        q=q.normalize();
+        pedestrian.header.frame_id = "base_link";
+        pedestrian.ns = "pedestrian";
+        pedestrian.type = visualization_msgs::Marker::CYLINDER;
+        pedestrian.action = visualization_msgs::Marker::ADD;
+        pedestrian.pose.orientation.w = 1.0;
+        pedestrian.scale.x = 0.6;
+        pedestrian.scale.y = 0.6;
+        pedestrian.scale.z = 0.6;
+        pedestrian.color.a = 1.0;
+        pedestrian.color.b = 1.0;
+        pedestrian.lifetime = ros::Duration(0.5);
+        pedestrian.id = 0;
+        pedestrian.pose.position.x = people1_x;
+        pedestrian.pose.position.y = people1_y;
+        pedestrian.pose.position.z = 0.3;
+        pedestrian.pose.orientation.x=q[0];
+        pedestrian.pose.orientation.y=q[1];
+        pedestrian.pose.orientation.z=q[2];
+        pedestrian.pose.orientation.w=q[3];
+        pedestrian.header.stamp = ros::Time();
+        mrk_array.markers.push_back(pedestrian);
+        arrow = pedestrian;
+        arrow.type = visualization_msgs::Marker::ARROW;
+        arrow.ns = "direction" ;
+        arrow.scale.x = 0.8;
+        arrow.scale.y = 0.2;
+        arrow.scale.z = 0.2;
+        mrk_array.markers.push_back(arrow);
+            
+    }
     if(people2_x>-5)
     {
-        people2_vx=-1*(time3-time2);
-        people2_x+=people2_vx;
+        people2_vx=-1*(time3-time1);
+        people2_x+=people2_vx*0.667*0.7;
         double yaw_2=atan2(people2_vy,people2_vx);
         q.setRPY(0,0,yaw_2);
         q=q.normalize();
-
         pedestrian.header.frame_id = "base_link";
-        pedestrian.ns = "pedesrian";
+        pedestrian.ns = "pedestrian";
         pedestrian.type = visualization_msgs::Marker::CYLINDER;
         pedestrian.action = visualization_msgs::Marker::ADD;
         pedestrian.pose.orientation.w = 1.0;
@@ -424,9 +404,9 @@ void fake_map(nav_msgs::OccupancyGrid &localmap_ptr_)
         arrow.scale.z = 0.2;
         mrk_array.markers.push_back(arrow);
     }
-    cout <<"time2:"<<time3-time2<<endl;
-    //true_time+=time3-time2;
 
+    //true_time+=time3-time2;
+    //cout <<"time2:"<<time3-time2<<endl;
 }
 void map_initialize(nav_msgs::OccupancyGrid &localmap_ptr_)
 {

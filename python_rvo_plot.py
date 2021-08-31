@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-with open('foo.txt', 'r') as f:
+with open('vo_2_2.txt', 'r') as f:
     lines = f.readlines()
     t = [float(line.split()[0]) for line in lines]
     people1_comfort = [float(line.split()[1]) for line in lines]
@@ -7,6 +7,18 @@ with open('foo.txt', 'r') as f:
     people2_comfort = [float(line.split()[3]) for line in lines]
     d2 = [float(line.split()[4]) for line in lines]
 
+k=0
+mean=0
+max_comfort=0
+for i in  range (len(t)):
+    if(d2[i]<6):
+        mean+=people2_comfort[i]
+        k+=1
+    if(max_comfort<people2_comfort[i]):
+        max_comfort=people2_comfort[i]
+
+print mean/k
+print max_comfort  
 
 
 plt.figure(1)

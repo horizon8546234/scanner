@@ -193,6 +193,12 @@ target_link_libraries(path_finding_node_simulation
   ${catkin_LIBRARIES}
 )
 
+add_executable(path_finding_node_simulation_2 src/path_finding_node_simulation_2.cpp)
+target_link_libraries(path_finding_node_simulation_2
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+
 add_executable(path_finding_node_test src/path_finding_node_test.cpp)
 target_link_libraries(path_finding_node_test
   ${PROJECT_NAME}
@@ -201,6 +207,12 @@ target_link_libraries(path_finding_node_test
 
 add_executable(scan2localmap_node_simulation src/scan2localmap_node_simulation.cpp)
 target_link_libraries(scan2localmap_node_simulation 
+  ${PROJECT_NAME} 
+  ${catkin_LIBRARIES}
+)
+
+add_executable(scan2localmap_node_simulation_2 src/scan2localmap_node_simulation_2.cpp)
+target_link_libraries(scan2localmap_node_simulation_2 
   ${PROJECT_NAME} 
   ${catkin_LIBRARIES}
 )
